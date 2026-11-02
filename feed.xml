@@ -1,7 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel>
     <title>ไปคาเฟ่กัน</title>
-    <link>https://paicafekan.com/</link>
+    <link>https://paicafekan.pages.dev/</link>
     <description>รีวิวคาเฟ่กรุงเทพฯ</description>
     <language>th</language>
+    <item>
+      <title>รีวิว Sarnies คาเฟ่ตึกเก่าสุดคลาสสิกย่านเจริญกรุง กาแฟเข้มข้น บรันช์จัดเต็มสไตล์สิงคโปร์</title>
+      <link>https://paicafekan.pages.dev/posts/sarnies-64717/</link>
+      <guid>https://paicafekan.pages.dev/posts/sarnies-64717/</guid>
+      <description>สัมผัสเสน่ห์คาเฟ่ในตึกเก่าย่านเจริญกรุงที่ Sarnies กาแฟคั่วสดคุณภาพเยี่ยม บรันช์รสชาติเข้มข้น และบรรยากาศสุดคลาสสิกที่สายคาเฟ่ไม่ควรพลาด</description>
+    </item>
+    <item>
+      <title>ดื่มด่ำโลกใต้ท้องทะเลสีครามที่ Blue Whale 392 คาเฟ่พระนครย่านท่าเตียน</title>
+      <link>https://paicafekan.pages.dev/posts/blue-whale-392-60390/</link>
+      <guid>https://paicafekan.pages.dev/posts/blue-whale-392-60390/</guid>
+      <description>สัมผัสบรรยากาศใต้ทะเลสีครามที่ Blue Whale 392 คาเฟ่ท่าเตียนสุดเก๋ในย่านพระนคร โดดเด่นด้วยดีไซน์เฉดน้ำเงินและเครื่องดื่มรสชาติดีที่สายคาเฟ่ไม่ควรพลาด</description>
+    </item>
+    <item>
+      <title>รีวิว Kaizen Coffee Co. คาเฟ่เอกมัยสไตล์มินิมอล เอาใจคอกาแฟและสายทำงานชิลล์</title>
+      <link>https://paicafekan.pages.dev/posts/kaizen-coffee-co-56321/</link>
+      <guid>https://paicafekan.pages.dev/posts/kaizen-coffee-co-56321/</guid>
+      <description>รีวิว Kaizen Coffee Co. คาเฟ่เอกมัยสายมินิมอล กาแฟ Specialty คุณภาพดี บรรยากาศโปร่งสบาย มี Wi-Fi และโซนเอาท์ดอร์ ตอบโจทย์ทั้งสายชิลล์และคนทำงาน</description>
+    </item>
 </channel></rss>
