@@ -103,8 +103,11 @@ function withLock_(fn) {
  */
 var RUN_BUDGET_MS = 240 * 1000;
 
-/** แถว processing ที่ค้างเกินนี้ ถือว่าตายกลางทาง -> กลับไป ready */
-var STALE_PROCESSING_MS = 15 * 60 * 1000;
+/**
+ * แถว processing ที่ค้างเกินนี้ ถือว่าตายกลางทาง -> กลับไป ready
+ * (เราเพิ่งได้ lock มาแล้ว จึงไม่มี execution อื่นทำงานอยู่จริง)
+ */
+var STALE_PROCESSING_MS = 60 * 1000;
 
 /**
  * ตัวหลักของรอบเช้า: หาแถว ready -> สร้างร่าง -> ส่ง LINE รออนุมัติ
@@ -179,6 +182,16 @@ function briefItems_(items) {
 
 /** ส่งการ์ด LINE เมื่อไม่มีร้าน ready เหลือแล้ว และยังไม่เคยส่งของรอบนี้ */
 function finishBatch_(cfg, sheet, dateKey, started, built) {
+  var lastRow = sheet.getLastRow();
+
+  // ยังมีร้าน ready ที่ยังสร้างได้ (ไม่เกินโควตาวันนี้) -> ทำต่อก่อน ยังไม่ส่ง LINE
+  var pendingToday = countPendingToday_(sheet, dateKey, lastRow);
+  if (cfg.batchSize - pendingToday > 0 && hasReadyRows_(sheet, lastRow)) {
+    scheduleContinuation_();
+    log_('INFO', '-', '-', 'ยังมีร้าน ready เหลือ — ทำต่อใน 1 นาที (ยังไม่ส่ง LINE)');
+    return { deferred: true, waiting: true, items: briefItems_(built) };
+  }
+
   syncPendingIndex_(cfg, sheet);
   var items = Approve.pendingItems_(cfg);
 
@@ -206,6 +219,17 @@ function finishBatch_(cfg, sheet, dateKey, started, built) {
 
   log_('OK', '-', '-', 'ส่ง LINE รออนุมัติ ' + items.length + ' ร้าน');
   return { sent: items.length, items: briefItems_(built) };
+}
+
+/** ยังมีแถว ready ที่รอสร้างอยู่ไหม */
+function hasReadyRows_(sheet, lastRow) {
+  lastRow = lastRow || sheet.getLastRow();
+  if (lastRow < 2) return false;
+  var vals = sheet.getRange(2, COL.STATUS, lastRow - 1, 1).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][0] || '').trim().toLowerCase() === STATUS.READY) return true;
+  }
+  return false;
 }
 
 /** นับร่างของวันนี้ที่สร้างไปแล้ว (ทั้งที่รออนุมัติและกำลังสร้าง) */
@@ -418,12 +442,16 @@ function dumpSheet() {
   var rows = sheet.getRange(1, 1, n, HEADERS.length).getValues();
   var out = rows.map(function (r, i) {
     var photos = String(r[COL.PHOTO_IN - 1] || '').replace(/\s+/g, ' ').trim();
+    var upd = r[COL.UPDATED_AT - 1];
     return {
       row: i + 1,
       name: String(r[COL.NAME - 1] || ''),
       zone: String(r[COL.ZONE - 1] || ''),
       status: String(r[COL.STATUS - 1] || ''),
       slug: String(r[COL.SLUG - 1] || ''),
+      batch: String(r[COL.BATCH - 1] || ''),
+      updated: upd instanceof Date ? upd.toISOString() : String(upd || ''),
+      note: String(r[COL.NOTE - 1] || '').slice(0, 120),
       photoCount: parsePhotoUrls_(photos).length,
       photos: photos.slice(0, 240)
     };
