@@ -24,10 +24,11 @@ var COL = {
   SLUG: 9,        // I: Slug
   PHOTO_URL: 10,  // J: Photo URL
   PLACE_ID: 11,   // K: Place ID (osm:node/123)
-  BATCH: 12       // L: Batch date (yyyy-MM-dd)
+  BATCH: 12,      // L: Batch date (yyyy-MM-dd)
+  PHOTO_IN: 13    // M: รูปที่ใส่เอง (URL) — ถ้าไม่ใส่ ระบบสร้างปกอัตโนมัติ
 };
 
-var HEADERS = ['Cafe Name', 'Zone', 'Status', 'Article Title', 'Doc URL', 'Updated At', 'Note', 'Post URL', 'Slug', 'Photo URL', 'Place ID', 'Batch'];
+var HEADERS = ['Cafe Name', 'Zone', 'Status', 'Article Title', 'Doc URL', 'Updated At', 'Note', 'Post URL', 'Slug', 'Photo URL', 'Place ID', 'Batch', 'Photo (ใส่เอง)'];
 
 var STATUS = {
   READY: 'ready',
@@ -168,6 +169,8 @@ function buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateK
 
   var doc = createDraftDoc_(place.name, zone || place.zone, article, cfg);
 
+  var manualPhoto = normalizePhotoUrl_(String(sheet.getRange(sheetRow, COL.PHOTO_IN).getValue() || ''));
+
   var item = {
     row: sheetRow,
     dateKey: dateKey,
@@ -184,8 +187,9 @@ function buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateK
     mapsUrl: place.mapsUrl || '',
     hours: place.hours || '',
     rating: place.rating || '',
-    photoRef: place.photoRef || '',
-    photoUrl: place.photoUrl || '',
+    photoRef: manualPhoto || place.photoRef || '',
+    photoUrl: manualPhoto || place.photoUrl || '',
+    photoManual: !!manualPhoto,
     docUrl: doc.url
   };
 
@@ -268,8 +272,13 @@ function setupHeaders() {
   sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight('bold').setBackground('#CFE2F3');
   sheet.setFrozenRows(1);
 
-  var widths = [200, 120, 105, 300, 300, 130, 300, 300, 200, 220, 200, 100];
+  var widths = [200, 120, 105, 300, 300, 130, 300, 300, 200, 220, 200, 100, 300];
   for (var i = 0; i < widths.length; i++) sheet.setColumnWidth(i + 1, widths[i]);
+
+  sheet.getRange(1, COL.PHOTO_IN).setNote(
+    'ไม่บังคับ: วางลิงก์รูปของร้าน (Google Drive ที่แชร์เป็น "ทุกคนที่มีลิงก์" หรือลิงก์รูปตรง ๆ)\n' +
+    'ถ้าเว้นว่าง ระบบจะสร้างปกอัตโนมัติให้'
+  );
 
   // แถวว่างที่ยังไม่มีข้อมูล -> ใส่ตัวอย่างไว้ให้กรอกง่าย
   var lastRow = sheet.getLastRow();
@@ -279,6 +288,17 @@ function setupHeaders() {
 
   log_('INFO', '-', '-', 'ตั้งหัวตารางเรียบร้อย');
   return HEADERS;
+}
+
+/** แปลงลิงก์รูปที่ผู้ใช้ใส่ → URL ที่ดาวน์โหลดได้จริง */
+function normalizePhotoUrl_(u) {
+  var s = String(u || '').trim();
+  if (!s) return '';
+  // Google Drive share link -> direct download
+  var m = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:[^#]*&)?id=)([-\w]{10,})/i);
+  if (m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
+  if (/^https?:\/\//i.test(s)) return s;  // ตรวจ content-type ตอนดาวน์โหลดอีกที
+  return '';
 }
 
 /** อ่าน/สร้างชีต */
@@ -592,9 +612,12 @@ var Places = {
       var res = Places.fetch_(photoRef);
       if (res.getResponseCode() !== 200) return '';
       var blob = res.getBlob();
-      if (String(blob.getContentType()).indexOf('image/') !== 0) return '';
       var bytes = blob.getBytes();
       if (!bytes.length || bytes.length > PHOTO_MAX_BYTES) return '';
+      if (!isImageBytes_(bytes)) {
+        log_('WARN', '-', '-', 'ลิงก์รูปไม่ใช่ไฟล์ภาพ: ' + String(photoRef).slice(0, 120));
+        return '';
+      }
       return Utilities.base64Encode(bytes);
     } catch (e) {
       log_('WARN', '-', '-', 'ดาวน์โหลดรูปไม่ได้: ' + e.message);
@@ -634,6 +657,17 @@ function compressHours_(days) {
     return (order[0].indexOf('ปิด') === 0 ? order[0] : 'ทุกวัน ' + order[0]);
   }
   return days.join(' · ');
+}
+
+/** เดาชนิดไฟล์จาก magic bytes (กันลิงก์ที่ดาวน์โหลดได้เป็น HTML) */
+function isImageBytes_(b) {
+  if (!b || b.length < 12) return false;
+  var jpg = b[0] === 0xFF && b[1] === 0xD8;
+  var png = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47;
+  var gif = b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46;
+  var webp = String.fromCharCode(b[0], b[1], b[2], b[3]) === 'RIFF' &&
+    String.fromCharCode(b[8], b[9], b[10], b[11]) === 'WEBP';
+  return jpg || png || gif || webp;
 }
 
 /** normalize ชื่อร้านเพื่อเทียบ */
@@ -898,7 +932,7 @@ function createDraftDoc_(name, zone, article, cfg) {
   // หมายเหตุท้ายบทความ
   body.appendHorizontalRule();
   var note = body.appendParagraph(
-    '⚠️ ตรวจก่อนโพสต์: ใส่รูปภาพจริง, ฝัง Google Maps, ตรวจราคา/เวลาเปิด-ปิด, แก้ไขลิงก์ และลบข้อความแถบนี้ก่อนเผยแพร่'
+    '⚠️ ตรวจก่อนโพสต์: ตรวจราคา/เวลาเปิด-ปิด แก้ไขลิงก์ และลบข้อความแถบนี้ก่อนเผยแพร่ · ถ้าอยากได้รูปจริงของร้าน วางลิงก์รูปในคอลัมน์ M "Photo (ใส่เอง)" ในชีต'
   );
   note.setFontSize(9);
   note.setForegroundColor('#B45F06');
@@ -1063,7 +1097,8 @@ var Line = {
           ]
         }
       };
-      if (it.photoUrl) {
+      // LINE รับได้เฉพาะ URL รูปโดยตรง (jpg/png/webp) — ถ้าเป็นลิงก์ Drive/หน้าเว็บ ให้ข้ามรูปไปเลย
+      if (it.photoUrl && /^https?:\/\/[^\s]+\.(jpe?g|png|webp)(\?|#|$)/i.test(it.photoUrl)) {
         bubble.hero = {
           type: 'image',
           url: it.photoUrl,
@@ -1384,7 +1419,7 @@ var Site = {
 
     var cover = photo
       ? '<figure class="article-cover"><img src="' + esc_(photo) + '" alt="' + esc_(item.name) + '" loading="eager" width="1200" height="675"></figure>'
-      : '<figure class="article-cover"></figure>';
+      : '<figure class="article-cover cover-auto">' + Site.coverAuto_(item) + '</figure>';
 
     var infoRows = [
       ['ชื่อร้าน', item.name],
@@ -1411,7 +1446,9 @@ var Site = {
       '</section>'
     ].join('\n') : '';
 
-    var credit = photo ? '<p class="photo-credit">รูปจากเว็บไซต์ของร้าน</p>' : '';
+    var credit = photo
+      ? '<p class="photo-credit">' + (item.photoManual ? 'รูปจากทางร้าน' : 'รูปจากเว็บไซต์ของร้าน') + '</p>'
+      : '';
 
     return [
       '<!DOCTYPE html>',
@@ -1501,10 +1538,10 @@ var Site = {
       var href = '/posts/' + p.slug + '/';
       var img = p.photo
         ? '<img src="/' + esc_(p.photo) + '" alt="' + esc_(p.name) + '" loading="lazy" width="640" height="440">'
-        : '';
+        : '<span class="card-auto"><strong>' + esc_(p.name) + '</strong></span>';
       return [
         '      <article class="card">',
-        '        <a class="card-photo" href="' + href + '"><span class="zone">' + esc_(p.zone || 'กรุงเทพฯ') + '</span>' + img + '</a>',
+        '        <a class="card-photo' + (p.photo ? '' : ' cover-auto') + '" href="' + href + '"><span class="zone">' + esc_(p.zone || 'กรุงเทพฯ') + '</span>' + img + '</a>',
         '        <div class="card-body">',
         '          <h3><a href="' + href + '">' + esc_(p.title) + '</a></h3>',
         p.excerpt ? '          <p>' + esc_(p.excerpt) + '</p>' : '',
@@ -1513,6 +1550,17 @@ var Site = {
         '      </article>'
       ].filter(Boolean).join('\n');
     }).join('\n');
+  },
+
+  /** ปกอัตโนมัติ (ไม่มีรูปจริง) — ใช้ CSS พาสเทล + ชื่อร้าน + โซน */
+  coverAuto_: function (item) {
+    return [
+      '<div class="cover-auto-inner">',
+      '  <span class="cover-zone">' + esc_(item.zone || 'กรุงเทพฯ') + '</span>',
+      '  <span class="cover-name">' + esc_(item.name) + '</span>',
+      '  <span class="cover-brand">☕ ไปคาเฟ่กัน · รีวิวคาเฟ่กรุงเทพฯ</span>',
+      '</div>'
+    ].join('\n      ');
   },
 
   head_: function (o) {
