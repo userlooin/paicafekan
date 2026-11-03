@@ -1259,6 +1259,36 @@ function setModelDefault() {
   return { ok: true, model: 'gemini-3.8-flash' };
 }
 
+/** ADMIN: สลับเป็น gemini-3.5-flash ( ?run=setModel35Flash ) */
+function setModel35Flash() {
+  PropertiesService.getScriptProperties().setProperty('GEMINI_MODEL', 'gemini-3.5-flash');
+  return { ok: true, model: 'gemini-3.5-flash' };
+}
+
+/** ADMIN: สลับเป็น gemini-3.5-flash-lite ( ?run=setModel35FlashLite ) */
+function setModel35FlashLite() {
+  PropertiesService.getScriptProperties().setProperty('GEMINI_MODEL', 'gemini-3.5-flash-lite');
+  return { ok: true, model: 'gemini-3.5-flash-lite' };
+}
+
+/** ADMIN: สลับเป็น gemini-3.6-flash ( ?run=setModel36Flash ) */
+function setModel36Flash() {
+  PropertiesService.getScriptProperties().setProperty('GEMINI_MODEL', 'gemini-3.6-flash');
+  return { ok: true, model: 'gemini-3.6-flash' };
+}
+
+/** ADMIN: สลับเป็น gemini-3.7-flash ( ?run=setModel37Flash ) */
+function setModel37Flash() {
+  PropertiesService.getScriptProperties().setProperty('GEMINI_MODEL', 'gemini-3.7-flash');
+  return { ok: true, model: 'gemini-3.7-flash' };
+}
+
+/** ADMIN: สลับเป็น gemini-3-flash-preview ( ?run=setModel3FlashPreview ) */
+function setModel3FlashPreview() {
+  PropertiesService.getScriptProperties().setProperty('GEMINI_MODEL', 'gemini-3-flash-preview');
+  return { ok: true, model: 'gemini-3-flash-preview' };
+}
+
 /* ---------------------- Docs.gs ---------------------- */
 /**
  * Google Docs: สร้างร่างบทความ + จัดรูปแบบจาก Markdown อย่างง่าย
@@ -1553,6 +1583,11 @@ var ADMIN_FUNCTIONS = [
   'setModelGemini25Flash',
   'setModelGemini25FlashLite',
   'setModelDefault',
+  'setModel35Flash',
+  'setModel35FlashLite',
+  'setModel36Flash',
+  'setModel37Flash',
+  'setModel3FlashPreview',
   'testLine',
   'lineFollowers',
   'setupHeaders',
