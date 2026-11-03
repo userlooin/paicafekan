@@ -98,54 +98,196 @@ function withLock_(fn) {
 }
 
 /**
+ * เวลาทำงานสูงสุดต่อ 1 execution (Apps Script หมดเวลาที่ 360 วินาที)
+ * เผื่อเวลาไว้ส่ง LINE + เขียนชีตช่วงท้าย
+ */
+var RUN_BUDGET_MS = 240 * 1000;
+
+/** แถว processing ที่ค้างเกินนี้ ถือว่าตายกลางทาง -> กลับไป ready */
+var STALE_PROCESSING_MS = 15 * 60 * 1000;
+
+/**
  * ตัวหลักของรอบเช้า: หาแถว ready -> สร้างร่าง -> ส่ง LINE รออนุมัติ
+ *
+ * ทำเป็น "ก้อน" (chunk): สร้างร้านละ ~4-5 นาที จึงสร้างได้ ~1 ร้านต่อ 1 execution
+ * ถ้ายังมีร้าน ready เหลือ -> ตั้งทริกเกอร์ทำต่อใน 1 นาที (ไม่ต้องรอถึงพรุ่งนี้)
+ * ส่งการ์ด LINE ครั้งเดียวตอนที่ไม่มีร้าน ready เหลือแล้วเท่านั้น
  */
 function runDailyBatch_() {
   var cfg = getConfig_();
   var sheet = getSheet_(cfg.sheetName);
+  var started = Date.now();
+
+  var recovered = recoverStaleProcessing_(sheet);
+  if (recovered) log_('WARN', '-', '-', 'รีเซ็ตแถวที่ค้างสถานะ processing: ' + recovered + ' แถว');
+
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { sent: 0, items: [] };
 
   var dateKey = Utilities.formatDate(new Date(), cfg.timezone, 'yyyy-MM-dd');
-  var rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
-  var items = [];
+  var pendingToday = countPendingToday_(sheet, dateKey, lastRow);
+  var slots = Math.max(0, cfg.batchSize - pendingToday);
+  var built = [];
   var usedPlaceIds = [];
 
-  for (var i = 0; i < rows.length; i++) {
-    if (items.length >= cfg.batchSize) break;
-    var row = rows[i];
-    var sheetRow = i + 2;
-    var status = String(row[COL.STATUS - 1] || '').trim().toLowerCase();
-    if (status !== STATUS.READY) continue;
+  if (slots > 0) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
 
-    var name = String(row[COL.NAME - 1] || '').trim();
-    var zone = String(row[COL.ZONE - 1] || '').trim();
-    if (!name && !zone) {
-      setStatus_(sheet, sheetRow, STATUS.ERROR, 'ต้องใส่ชื่อร้านหรือโซนอย่างน้อย 1 อย่าง');
-      continue;
-    }
+    for (var i = 0; i < rows.length && built.length < slots; i++) {
+      var row = rows[i];
+      var status = String(row[COL.STATUS - 1] || '').trim().toLowerCase();
+      if (status !== STATUS.READY) continue;
 
-    try {
-      var item = buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateKey);
-      usedPlaceIds.push(item.placeId);
-      items.push(item);
-    } catch (err) {
-      var msg = String(err && err.message ? err.message : err).slice(0, 400);
-      setStatus_(sheet, sheetRow, STATUS.ERROR, msg);
-      log_('ERROR', name, sheetRow, msg);
+      // หมดเวลาแล้วแต่ยังมีร้านเหลือ -> ตั้งรอบถัดไปแล้วจบรอบนี้
+      if (Date.now() - started > RUN_BUDGET_MS) {
+        scheduleContinuation_();
+        log_('INFO', '-', '-', 'ครบเวลา — เหลืออีกราว ' + (slots - built.length) + ' ร้าน จะทำต่อใน 1 นาที');
+        return {
+          partial: true,
+          built: built.length,
+          remaining: slots - built.length,
+          items: briefItems_(built)
+        };
+      }
+
+      var sheetRow = i + 2;
+      var name = String(row[COL.NAME - 1] || '').trim();
+      var zone = String(row[COL.ZONE - 1] || '').trim();
+      if (!name && !zone) {
+        setStatus_(sheet, sheetRow, STATUS.ERROR, 'ต้องใส่ชื่อร้านหรือโซนอย่างน้อย 1 อย่าง');
+        continue;
+      }
+
+      try {
+        var item = buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateKey);
+        usedPlaceIds.push(item.placeId);
+        built.push(item);
+      } catch (err) {
+        var msg = String(err && err.message ? err.message : err).slice(0, 400);
+        setStatus_(sheet, sheetRow, STATUS.ERROR, msg);
+        log_('ERROR', name, sheetRow, msg);
+      }
     }
   }
+
+  return finishBatch_(cfg, sheet, dateKey, started, built);
+}
+
+function briefItems_(items) {
+  return items.map(function (it) { return { row: it.row, name: it.name, slug: it.slug }; });
+}
+
+/** ส่งการ์ด LINE เมื่อไม่มีร้าน ready เหลือแล้ว และยังไม่เคยส่งของรอบนี้ */
+function finishBatch_(cfg, sheet, dateKey, started, built) {
+  syncPendingIndex_(cfg, sheet);
+  var items = Approve.pendingItems_(cfg);
 
   if (!items.length) {
     log_('INFO', '-', '-', 'ไม่มีแถว ready — ไม่ส่ง LINE');
-    return { sent: 0, items: [] };
+    return { sent: 0, items: briefItems_(built) };
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  var sig = items.map(function (it) { return it.row; }).join(',') + '@' + dateKey;
+  if (props.getProperty('PUSHED_SIG') === sig) {
+    return { sent: 0, alreadyPushed: true, items: briefItems_(built) };
+  }
+
+  // เวลาจะไม่พอส่งการ์ด -> ยกไปรอบถัดไป
+  if (Date.now() - started > RUN_BUDGET_MS + 60 * 1000) {
+    scheduleContinuation_();
+    log_('INFO', '-', '-', 'เวลาใกล้หมด — ส่ง LINE รอบถัดไป');
+    return { deferred: true, items: briefItems_(built) };
   }
 
   Line.pushBatchApproval(items);
-  fixPendingIndex_(cfg, items);
+  props.setProperty('PUSHED_SIG', sig);
+  props.setProperty('PUSHED_AT', String(Date.now()));
 
   log_('OK', '-', '-', 'ส่ง LINE รออนุมัติ ' + items.length + ' ร้าน');
-  return { sent: items.length, items: items.map(function (it) { return { row: it.row, name: it.name, slug: it.slug }; }) };
+  return { sent: items.length, items: briefItems_(built) };
+}
+
+/** นับร่างของวันนี้ที่สร้างไปแล้ว (ทั้งที่รออนุมัติและกำลังสร้าง) */
+function countPendingToday_(sheet, dateKey, lastRow) {
+  if (lastRow < 2) return 0;
+  var vals = sheet.getRange(2, COL.STATUS, lastRow - 1, COL.BATCH - COL.STATUS + 1).getValues();
+  var n = 0;
+  for (var i = 0; i < vals.length; i++) {
+    var st = String(vals[i][0] || '').trim().toLowerCase();
+    var batch = String(vals[i][COL.BATCH - COL.STATUS] || '').trim();
+    if (batch !== dateKey) continue;
+    if (st === STATUS.PENDING || st === STATUS.PROCESSING) n++;
+  }
+  return n;
+}
+
+/** แถวที่ค้าง processing นานเกินกำหนด (execution ตายกลางทาง) -> คืนเป็น ready */
+function recoverStaleProcessing_(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+  var now = Date.now();
+  var n = 0;
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][COL.STATUS - 1] || '').trim().toLowerCase() !== STATUS.PROCESSING) continue;
+    var upd = rows[i][COL.UPDATED_AT - 1];
+    var ts = upd instanceof Date ? upd.getTime() : (upd ? new Date(upd).getTime() : 0);
+    if (ts && now - ts < STALE_PROCESSING_MS) continue;
+    setStatus_(sheet, i + 2, STATUS.READY, 'รีเซ็ตจากสถานะ processing ที่ค้างอยู่');
+    n++;
+  }
+  return n;
+}
+
+/** ตั้ง trigger ทำงานต่อใน 1 นาที (ลบของเก่าที่ค้างก่อน) */
+function scheduleContinuation_() {
+  var props = PropertiesService.getScriptProperties();
+  var old = props.getProperty('NEXT_TRIGGER_ID');
+  if (old) {
+    try {
+      ScriptApp.getProjectTriggers().forEach(function (t) {
+        if (t.getUniqueId() === old) ScriptApp.deleteTrigger(t);
+      });
+    } catch (e) {}
+    props.deleteProperty('NEXT_TRIGGER_ID');
+  }
+  try {
+    var trig = ScriptApp.newTrigger('runDailyBatch').timeBased().after(60 * 1000).create();
+    props.setProperty('NEXT_TRIGGER_ID', trig.getUniqueId());
+    return trig.getUniqueId();
+  } catch (e) {
+    log_('ERROR', '-', '-', 'ตั้งรอบทำต่อไม่สำเร็จ: ' + e.message);
+    return '';
+  }
+}
+
+/** อัปเดต index ของร่างที่รออนุมัติให้ตรงกับชีตทั้งหมด */
+function syncPendingIndex_(cfg, sheet) {
+  var lastRow = sheet.getLastRow();
+  var props = PropertiesService.getScriptProperties();
+  if (lastRow < 2) {
+    props.deleteProperty('PENDING_ROWS');
+    return;
+  }
+  var vals = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+  var rows = [];
+  var slots = [];
+  var dateKey = '';
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][COL.STATUS - 1] || '').trim().toLowerCase() !== STATUS.PENDING) continue;
+    rows.push(i + 2);
+    slots.push({
+      n: i + 2,
+      name: String(vals[i][COL.NAME - 1] || ''),
+      zone: String(vals[i][COL.ZONE - 1] || ''),
+      title: String(vals[i][COL.TITLE - 1] || '')
+    });
+    if (!dateKey) dateKey = String(vals[i][COL.BATCH - 1] || '');
+  }
+  props.setProperty('PENDING_ROWS', rows.join(','));
+  if (dateKey) props.setProperty('PENDING_DATE', dateKey);
+  props.setProperty('PENDING_SLOTS', JSON.stringify(slots));
 }
 
 /**
