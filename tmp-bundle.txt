@@ -172,8 +172,8 @@ function runDailyBatch_() {
         var msg = String(err && err.message ? err.message : err).slice(0, 400);
         setStatus_(sheet, sheetRow, STATUS.ERROR, msg);
         log_('ERROR', name, sheetRow, msg);
-        // Gemini ล่ม/โหลดหนัก ติดกัน 2 ร้าน = หยุดแบทช์นี้เลย (ไม่ตั้ง continuation รอบถัดไป)
-        if (/HTTP\s*5\d\d|503|overloaded|high demand|timeout|UNAVAILABLE/i.test(msg)) {
+        // Gemini/Nominatim ล่ม/โควตาหมด ติดกัน 2 ร้าน -> หยุดแบทช์นี้เลย (ไม่ตั้ง continuation)
+        if (/HTTP\s*(429|5\d\d)|overloaded|high demand|quota|timeout|time out|exhausted|UNAVAILABLE/i.test(msg)) {
           consecutiveModelErrs++;
           if (consecutiveModelErrs >= 2) {
             log_('WARN', '-', '-', 'Gemini ล่ม/โหลดหนัก 2 ร้านติดกัน — หยุดแบทช์รอบนี้ (แถว ready เหลือไว้รอบหน้า)');
@@ -504,7 +504,7 @@ function dumpSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = getSheet_(cfg.sheetName);
   var last = Math.max(sheet.getLastRow(), 1);
-  var n = Math.min(last, 30);
+  var n = Math.min(last, 120);
   var rows = sheet.getRange(1, 1, n, HEADERS.length).getValues();
   var out = rows.map(function (r, i) {
     var photos = String(r[COL.PHOTO_IN - 1] || '').replace(/\s+/g, ' ').trim();
@@ -644,7 +644,7 @@ function getConfig_() {
     apiKey: p.getProperty('GEMINI_API_KEY') || '',
     model: p.getProperty('GEMINI_MODEL') || DEFAULTS.MODEL,
     groqKey: p.getProperty('GROQ_API_KEY') || '',
-    groqModel: p.getProperty('GROQ_MODEL') || 'llama-3.3-70b-versatile',
+    groqModel: p.getProperty('GROQ_MODEL') || 'openai/gpt-oss-120b',
     folderId: p.getProperty('DOC_FOLDER_ID') || '',
     sheetName: p.getProperty('SHEET_NAME') || DEFAULTS.SHEET_NAME,
     logSheet: p.getProperty('LOG_SHEET') || DEFAULTS.LOG_SHEET,
@@ -1165,11 +1165,14 @@ function askGeminiCore_(prompt, cfg) {
       return parseGeminiResponse_(text);
     }
 
+    // 429 = โควตา/จำกัด — retry นิดเดียวพอ อย่าเผาโควตาต่อ
+    if (code === 429 && attempt >= 2) break;
+
     lastError = 'Gemini HTTP ' + code + ': ' + text.slice(0, 500);
 
-    // 429 = rate limit, 5xx = ฝั่ง Google ขัดข้อง -> รอแล้วลองใหม่
+    // 5xx = ฝั่ง Google ขัดข้อง -> รอแล้วลองใหม่
     if (code === 429 || code === 500 || code === 503) {
-      Utilities.sleep(Math.pow(2, attempt) * 2000);
+      Utilities.sleep(Math.pow(2, attempt) * 1500);
       continue;
     }
     throw new Error(lastError);
@@ -1290,6 +1293,44 @@ function testGroq() {
   } catch (err) {
     return 'Groq ใช้งานไม่ได้ ✖ — ' + err.message;
   }
+}
+
+/** ADMIN: ดูว่า Groq key นี้ใช้โมเดลไหนได้บ้าง */
+function listGroqModels() {
+  var cfg = getConfig_();
+  if (!cfg.groqKey) return { error: 'no GROQ_API_KEY' };
+  try {
+    var res = UrlFetchApp.fetch('https://api.groq.com/openai/v1/models', {
+      headers: { Authorization: 'Bearer ' + cfg.groqKey },
+      muteHttpExceptions: true
+    });
+    var code = res.getResponseCode();
+    var data = {};
+    try { data = JSON.parse(res.getContentText()); } catch (e) {}
+    if (code !== 200) return { error: 'HTTP ' + code, body: String(res.getContentText()).slice(0, 300) };
+    var models = (data.data || []).map(function (m) { return m.id; });
+    return { ok: true, current: cfg.groqModel, count: models.length, models: models };
+  } catch (e) {
+    return { error: String(e.message || e) };
+  }
+}
+
+/** ADMIN: สลับโมเดล Groq เป็น openai/gpt-oss-120b */
+function setGroqModelGptOss120() {
+  PropertiesService.getScriptProperties().setProperty('GROQ_MODEL', 'openai/gpt-oss-120b');
+  return { ok: true, model: 'openai/gpt-oss-120b' };
+}
+
+/** ADMIN: สลับโมเดล Groq เป็น openai/gpt-oss-20b */
+function setGroqModelGptOss20() {
+  PropertiesService.getScriptProperties().setProperty('GROQ_MODEL', 'openai/gpt-oss-20b');
+  return { ok: true, model: 'openai/gpt-oss-20b' };
+}
+
+/** ADMIN: สลับโมเดล Groq เป็น llama-3.1-8b-instant */
+function setGroqModelLlama31Instant() {
+  PropertiesService.getScriptProperties().setProperty('GROQ_MODEL', 'llama-3.1-8b-instant');
+  return { ok: true, model: 'llama-3.1-8b-instant' };
 }
 
 /** ทดสอบการเชื่อมต่อ Gemini จากเมนู */
@@ -1662,6 +1703,10 @@ var ADMIN_FUNCTIONS = [
   'testGitHub',
   'testGemini',
   'testGroq',
+  'listGroqModels',
+  'setGroqModelGptOss120',
+  'setGroqModelGptOss20',
+  'setGroqModelLlama31Instant',
   'listGeminiModels',
   'setModelGemini25Flash',
   'setModelGemini25FlashLite',
