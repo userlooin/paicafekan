@@ -136,6 +136,7 @@ function runDailyBatch_() {
 
   if (slots > 0) {
     var rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+    var consecutiveModelErrs = 0;
 
     for (var i = 0; i < rows.length && built.length < slots; i++) {
       var row = rows[i];
@@ -164,12 +165,26 @@ function runDailyBatch_() {
 
       try {
         var item = buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateKey);
+        consecutiveModelErrs = 0;
         usedPlaceIds.push(item.placeId);
         built.push(item);
       } catch (err) {
         var msg = String(err && err.message ? err.message : err).slice(0, 400);
         setStatus_(sheet, sheetRow, STATUS.ERROR, msg);
         log_('ERROR', name, sheetRow, msg);
+        // Gemini ล่ม/โหลดหนัก ติดกัน 2 ร้าน = หยุดแบทช์นี้เลย (ไม่ตั้ง continuation รอบถัดไป)
+        if (/HTTP\s*5\d\d|503|overloaded|high demand|timeout|UNAVAILABLE/i.test(msg)) {
+          consecutiveModelErrs++;
+          if (consecutiveModelErrs >= 2) {
+            log_('WARN', '-', '-', 'Gemini ล่ม/โหลดหนัก 2 ร้านติดกัน — หยุดแบทช์รอบนี้ (แถว ready เหลือไว้รอบหน้า)');
+            try {
+              Line.push_([Line.text('⚠️ Gemini โหลดหนัก/ล่ม 2 ร้านติดกัน\nหยุดแบทช์รอบนี้ไว้ก่อน (แถว ready ที่เหลือจะไม่ถูกสร้าง)\nลองใหม่พรุ่งนี้เช้า — ถ้าอยากให้ลองตอนนี้ พิมพ์ "รันใหม่" มาได้')]);
+            } catch (e) {}
+            return { aborted: true, reason: 'model-outage', items: briefItems_(built) };
+          }
+        } else {
+          consecutiveModelErrs = 0;
+        }
         try {
           Line.push_([Line.text('⚠️ สร้างร่างไม่สำเร็จ แถว ' + sheetRow + ' (' + (name || '-') + '):\n' + msg)]);
         } catch (e) {}
@@ -1509,6 +1524,7 @@ var ADMIN_FUNCTIONS = [
   'dumpLog',
   'resetErrorToReady',
   'runPublishQueue',
+  'pauseBatch',
   'runNow'
 ];
 
@@ -2518,6 +2534,20 @@ function removeTriggers() {
     }
   });
   return removed;
+}
+
+/** ADMIN: พัก trigger สร้างร่างเท่านั้น (คิวโพสต์ยังทำงาน โพสต์ที่อนุมัติแล้วจะโพสต์ตามเวลา) */
+function pauseBatch() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
+  triggers.forEach(function (tr) {
+    if (tr.getHandlerFunction() === 'runDailyBatch') {
+      ScriptApp.deleteTrigger(tr);
+      removed++;
+    }
+  });
+  log_('WARN', '-', '-', 'พัก trigger สร้างร่าง: ' + removed + ' รายการ (เปิดใหม่ด้วย setupTriggers)');
+  return 'paused: ' + removed;
 }
 
 /** แสดง trigger ที่มีอยู่ */
