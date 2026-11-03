@@ -169,7 +169,7 @@ function buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateK
 
   var doc = createDraftDoc_(place.name, zone || place.zone, article, cfg);
 
-  var manualPhoto = normalizePhotoUrl_(String(sheet.getRange(sheetRow, COL.PHOTO_IN).getValue() || ''));
+  var manualPhotos = parsePhotoUrls_(sheet.getRange(sheetRow, COL.PHOTO_IN).getValue());
 
   var item = {
     row: sheetRow,
@@ -187,9 +187,10 @@ function buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateK
     mapsUrl: place.mapsUrl || '',
     hours: place.hours || '',
     rating: place.rating || '',
-    photoRef: manualPhoto || place.photoRef || '',
-    photoUrl: manualPhoto || place.photoUrl || '',
-    photoManual: !!manualPhoto,
+    photoRefs: manualPhotos.length ? manualPhotos : (place.photoRef ? [place.photoRef] : []),
+    photoRef: manualPhotos[0] || place.photoRef || '',
+    photoUrl: manualPhotos[0] || place.photoUrl || '',
+    photoManual: manualPhotos.length > 0,
     docUrl: doc.url
   };
 
@@ -265,6 +266,29 @@ function setStatus_(sheet, row, status, note) {
   }
 }
 
+/** อ่านข้อมูลในชีตแบบสรุป (เรียกผ่าน ?run=dumpSheet เพื่อตรวจงาน) */
+function dumpSheet() {
+  var cfg = getConfig_();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getSheet_(cfg.sheetName);
+  var last = Math.max(sheet.getLastRow(), 1);
+  var n = Math.min(last, 30);
+  var rows = sheet.getRange(1, 1, n, HEADERS.length).getValues();
+  var out = rows.map(function (r, i) {
+    var photos = String(r[COL.PHOTO_IN - 1] || '').replace(/\s+/g, ' ').trim();
+    return {
+      row: i + 1,
+      name: String(r[COL.NAME - 1] || ''),
+      zone: String(r[COL.ZONE - 1] || ''),
+      status: String(r[COL.STATUS - 1] || ''),
+      slug: String(r[COL.SLUG - 1] || ''),
+      photoCount: parsePhotoUrls_(photos).length,
+      photos: photos.slice(0, 240)
+    };
+  });
+  return { ssId: ss.getId(), ssName: ss.getName(), sheet: sheet.getName(), lastRow: last, rows: out };
+}
+
 /** ตั้งหัวตารางให้ตรงกับที่โค้ดต้องการ */
 function setupHeaders() {
   var cfg = getConfig_();
@@ -276,7 +300,8 @@ function setupHeaders() {
   for (var i = 0; i < widths.length; i++) sheet.setColumnWidth(i + 1, widths[i]);
 
   sheet.getRange(1, COL.PHOTO_IN).setNote(
-    'ไม่บังคับ: วางลิงก์รูปของร้าน (Google Drive ที่แชร์เป็น "ทุกคนที่มีลิงก์" หรือลิงก์รูปตรง ๆ)\n' +
+    'ไม่บังคับ: วางลิงก์รูปของร้านได้ 1–5 รูป (ขึ้นบรรทัดใหม่ หรือคั่นด้วยจุลภาค)\n' +
+    'รองรับ Google Drive ที่แชร์เป็น "ทุกคนที่มีลิงก์" และลิงก์รูปตรง ๆ\n' +
     'ถ้าเว้นว่าง ระบบจะสร้างปกอัตโนมัติให้'
   );
 
@@ -299,6 +324,18 @@ function normalizePhotoUrl_(u) {
   if (m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
   if (/^https?:\/\//i.test(s)) return s;  // ตรวจ content-type ตอนดาวน์โหลดอีกที
   return '';
+}
+
+/** แยกช่อง M ที่อาจมีหลายลิงก์ (ขึ้นบรรทัดใหม่ / คั่นด้วย , หรือเว้นวรรค) */
+function parsePhotoUrls_(raw) {
+  var parts = String(raw || '').split(/[\s,]+/);
+  var out = [];
+  for (var i = 0; i < parts.length; i++) {
+    var u = normalizePhotoUrl_(parts[i]);
+    if (u && out.indexOf(u) === -1) out.push(u);
+    if (out.length >= 5) break;
+  }
+  return out;
 }
 
 /** อ่าน/สร้างชีต */
@@ -932,7 +969,7 @@ function createDraftDoc_(name, zone, article, cfg) {
   // หมายเหตุท้ายบทความ
   body.appendHorizontalRule();
   var note = body.appendParagraph(
-    '⚠️ ตรวจก่อนโพสต์: ตรวจราคา/เวลาเปิด-ปิด แก้ไขลิงก์ และลบข้อความแถบนี้ก่อนเผยแพร่ · ถ้าอยากได้รูปจริงของร้าน วางลิงก์รูปในคอลัมน์ M "Photo (ใส่เอง)" ในชีต'
+    '⚠️ ตรวจก่อนโพสต์: ตรวจราคา/เวลาเปิด-ปิด แก้ไขลิงก์ และลบข้อความแถบนี้ก่อนเผยแพร่ · รูปจริงของร้าน: วางลิงก์ 1–5 รูปในคอลัมน์ M "Photo (ใส่เอง)" (ขึ้นบรรทัดใหม่)'
   );
   note.setFontSize(9);
   note.setForegroundColor('#B45F06');
@@ -1178,6 +1215,7 @@ var ADMIN_FUNCTIONS = [
   'listDeployInfo',
   'publishAllPending',
   'resendPending',
+  'dumpSheet',
   'runNow'
 ];
 
@@ -1405,7 +1443,11 @@ var Site = {
     var dateTH = thaiDate_(item.date);
     var readMin = readingTime_(item.body);
     var canonical = cfg.siteBase + '/posts/' + item.slug + '/';
-    var photo = item.photoPath ? '/' + item.photoPath : '';
+    var photoPaths = (item.photoPaths && item.photoPaths.length)
+      ? item.photoPaths
+      : (item.photoPath ? [item.photoPath] : []);
+    var heroPath = photoPaths[0] || '';
+    var photo = heroPath ? '/' + heroPath : '';
     var desc = item.metaDescription || item.excerpt || '';
 
     var head = Site.head_({
@@ -1420,6 +1462,14 @@ var Site = {
     var cover = photo
       ? '<figure class="article-cover"><img src="' + esc_(photo) + '" alt="' + esc_(item.name) + '" loading="eager" width="1200" height="675"></figure>'
       : '<figure class="article-cover cover-auto">' + Site.coverAuto_(item) + '</figure>';
+
+    var gallery = photoPaths.length > 1 ? [
+      '<div class="photo-grid">',
+      photoPaths.slice(1).map(function (p, i) {
+        return '  <figure><img src="/' + esc_(p) + '" alt="' + esc_(item.name) + ' ภาพที่ ' + (i + 2) + '" loading="lazy" width="640" height="440"></figure>';
+      }).join('\n'),
+      '</div>'
+    ].join('\n') : '';
 
     var infoRows = [
       ['ชื่อร้าน', item.name],
@@ -1467,6 +1517,7 @@ var Site = {
       '  <article class="article-body">',
       Site.md_(item.body),
       '  </article>',
+      '  ' + gallery,
       '  <aside class="info-box"><h3>ข้อมูลร้าน</h3>',
       '    ' + infoHtml,
       '  </aside>',
@@ -1787,14 +1838,15 @@ var Publish = {
     var today = Utilities.formatDate(new Date(), cfg.timezone, 'yyyy-MM-dd');
 
     items.forEach(function (it) {
-      var photoPath = '';
-      if (it.photoRef) {
-        var b64 = Places.photoBase64_(cfg, it.photoRef, 1600);
-        if (b64) {
-          photoPath = 'assets/img/posts/' + it.slug + '.jpg';
-          files.push({ path: photoPath, content: b64, encoding: 'base64' });
-        }
-      }
+      var photoPaths = [];
+      var refs = (it.photoRefs && it.photoRefs.length) ? it.photoRefs : (it.photoRef ? [it.photoRef] : []);
+      refs.forEach(function (ref) {
+        var b64 = Places.photoBase64_(cfg, ref, 1600);
+        if (!b64) return;
+        var p = 'assets/img/posts/' + it.slug + '-' + (photoPaths.length + 1) + '.jpg';
+        files.push({ path: p, content: b64, encoding: 'base64' });
+        photoPaths.push(p);
+      });
 
       // ลบข้อมูลเก่าของสลักเดียวกัน (ถ้ามี) แล้วใส่ใหม่
       manifest = manifest.filter(function (m) { return m.slug !== it.slug; });
@@ -1805,11 +1857,13 @@ var Publish = {
         title: it.title,
         excerpt: it.excerpt || '',
         date: today,
-        photo: photoPath,
+        photo: photoPaths[0] || '',
+        photos: photoPaths,
         tags: it.tags || []
       });
 
-      it.photoPath = photoPath;
+      it.photoPaths = photoPaths;
+      it.photoPath = photoPaths[0] || '';
       it.date = today;
 
       files.push({ path: 'posts/' + it.slug + '/index.html', content: Site.renderPost_(it, manifest), encoding: 'utf-8' });
@@ -2054,26 +2108,3 @@ function firstRunSetup() {
   checkSetup();
 }
 
-
-/** DEBUG (ชั่วคราว): อ่านข้อมูลชีต */
-function dumpSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var cfg = getConfig_();
-  var sh = getSheet_(cfg.sheetName);
-  var last = Math.max(sh.getLastRow(), 1);
-  var n = Math.min(last, 25);
-  var rows = sh.getRange(1, 1, n, HEADERS.length).getValues();
-  Logger.log(JSON.stringify({ ssId: ss.getId(), ssName: ss.getName(), sheet: sh.getName(), lastRow: last, rows: rows }));
-  return 'ok';
-}
-
-/** DEBUG (ชั่วคราว): เพิ่มแถวทดสอบ */
-function addTestRows() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var cfg = getConfig_();
-  var sh = getSheet_(cfg.sheetName);
-  sh.appendRow(['Factory Coffee', 'พญาไท', 'ready']);
-  sh.appendRow(['Brave Roasters', 'อารีย์', 'ready']);
-  Logger.log(JSON.stringify({ ssId: ss.getId(), sheet: sh.getName(), lastRow: sh.getLastRow() }));
-  return 'ok';
-}
