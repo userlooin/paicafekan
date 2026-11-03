@@ -2766,7 +2766,15 @@ function removeTriggers() {
 function purgeMassShops() {
   var cfg = getConfig_();
   var sheet = getSheet_(cfg.sheetName);
-  var words = ['amazon', 'อเมซอน', 'คาเฟ่ อเมซอน'];
+  var words = ['amazon', 'อเมซอน', 'คาเฟ่ อเมซอน',
+    'chao doi',                    // Chao Doi
+    'black canyon',                // Black Canyon Coffee
+    'flash coffee',                // Flash Coffee
+    'after you',                   // After You
+    'true coffee',                 // True Coffee
+    'arabica percentage',          // Arabica Percentage Empire
+    'open house'                   // Open House (Central World)
+  ];
   var lastRow = sheet.getLastRow();
   var deleted = [];
   var names = [];
