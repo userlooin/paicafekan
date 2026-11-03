@@ -1215,12 +1215,48 @@ function testGemini() {
   var cfg = getConfig_();
   try {
     var out = askGemini_('ตอบ JSON: {"title":"ทดสอบ","body":"สวัสดี"}', cfg);
-    log_('INFO', 'TEST', '-', 'Gemini ใช้งานได้: ' + out.body.slice(0, 80));
-    SpreadsheetApp.getUi().alert('เชื่อมต่อ Gemini สำเร็จ ✔\n\n' + out.body.slice(0, 200));
+    return 'Gemini ใช้งานได้ ✔ — ' + out.body.slice(0, 120);
   } catch (err) {
-    log_('ERROR', 'TEST', '-', 'Gemini ใช้งานไม่ได้: ' + err.message);
-    SpreadsheetApp.getUi().alert('เชื่อมต่อไม่สำเร็จ ✖\n\n' + err.message);
+    return 'Gemini ใช้งานไม่ได้ ✖ — ' + err.message;
   }
+}
+
+/** ADMIN: ดูรายการโมเดลที่ API key นี้เข้าถึงได้ ( ?run=listGeminiModels ) */
+function listGeminiModels() {
+  var cfg = getConfig_();
+  if (!cfg.apiKey) return { error: 'no API key' };
+  try {
+    var res = UrlFetchApp.fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(cfg.apiKey),
+      { muteHttpExceptions: true }
+    );
+    var code = res.getResponseCode();
+    var data = {};
+    try { data = JSON.parse(res.getContentText()); } catch (e) {}
+    if (code !== 200) return { error: 'HTTP ' + code, body: String(res.getContentText()).slice(0, 300) };
+    var models = (data.models || []).map(function (m) { return (m.name || '').replace(/^models\//, ''); });
+    return { ok: true, current: cfg.model, count: models.length, models: models };
+  } catch (e) {
+    return { error: String(e.message || e) };
+  }
+}
+
+/** ADMIN: สลับเป็น gemini-2.5-flash ( ?run=setModelGemini25Flash ) */
+function setModelGemini25Flash() {
+  PropertiesService.getScriptProperties().setProperty('GEMINI_MODEL', 'gemini-2.5-flash');
+  return { ok: true, model: 'gemini-2.5-flash' };
+}
+
+/** ADMIN: สลับเป็น gemini-2.5-flash-lite ( ?run=setModelGemini25FlashLite ) */
+function setModelGemini25FlashLite() {
+  PropertiesService.getScriptProperties().setProperty('GEMINI_MODEL', 'gemini-2.5-flash-lite');
+  return { ok: true, model: 'gemini-2.5-flash-lite' };
+}
+
+/** ADMIN: สลับกลับเป็น gemini-3.8-flash ( ?run=setModelDefault ) */
+function setModelDefault() {
+  PropertiesService.getScriptProperties().deleteProperty('GEMINI_MODEL');
+  return { ok: true, model: 'gemini-3.8-flash' };
 }
 
 /* ---------------------- Docs.gs ---------------------- */
@@ -1513,6 +1549,10 @@ var ADMIN_FUNCTIONS = [
   'testPlaces',
   'testGitHub',
   'testGemini',
+  'listGeminiModels',
+  'setModelGemini25Flash',
+  'setModelGemini25FlashLite',
+  'setModelDefault',
   'testLine',
   'lineFollowers',
   'setupHeaders',
