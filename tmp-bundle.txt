@@ -643,6 +643,8 @@ function getConfig_() {
   return {
     apiKey: p.getProperty('GEMINI_API_KEY') || '',
     model: p.getProperty('GEMINI_MODEL') || DEFAULTS.MODEL,
+    groqKey: p.getProperty('GROQ_API_KEY') || '',
+    groqModel: p.getProperty('GROQ_MODEL') || 'llama-3.3-70b-versatile',
     folderId: p.getProperty('DOC_FOLDER_ID') || '',
     sheetName: p.getProperty('SHEET_NAME') || DEFAULTS.SHEET_NAME,
     logSheet: p.getProperty('LOG_SHEET') || DEFAULTS.LOG_SHEET,
@@ -1094,10 +1096,25 @@ function buildPrompt_(name, zone, place) {
 }
 
 /**
- * เรียก Gemini API พร้อม retry เมื่อโดน rate limit / server error
- * @return {{title:string, metaDescription:string, excerpt:string, body:string, tags:Array<string>, raw:string}}
+ * ตัวเรียก AI หลัก: พยายามใช้ Gemini ก่อน; ถ้าล่ม (429/5xx/quota/ใช้งานไม่ได้) สลับไป Groq
  */
 function askGemini_(prompt, cfg) {
+  try {
+    return askGeminiCore_(prompt, cfg);
+  } catch (err) {
+    var msg = String(err && err.message ? err.message : err);
+    if (!cfg.groqKey) throw err;
+    // ปัญหาฝั่ง Google / โควตา / เวลา — ลอง Groq
+    if (/HTTP\s*(429|5\d\d)|overloaded|high demand|quota|timeout|time out|UNAVAILABLE|404/i.test(msg)) {
+      log_('WARN', '-', '-', 'Gemini ใช้ไม่ได้ — สลับไป Groq (' + cfg.groqModel + '): ' + msg.slice(0, 180));
+      return askGroq_(prompt, cfg);
+    }
+    throw err;
+  }
+}
+
+/** เรียก Gemini API พร้อม retry เมื่อโดน rate limit / server error */
+function askGeminiCore_(prompt, cfg) {
   if (!cfg.apiKey) {
     throw new Error('ยังไม่ได้ตั้งค่า GEMINI_API_KEY (Project Settings > Script Properties)');
   }
@@ -1179,11 +1196,24 @@ function parseGeminiResponse_(responseText) {
   var raw = candidate.content.parts.map(function (p) { return p.text || ''; }).join('').trim();
   if (!raw) throw new Error('Gemini คืนข้อความว่าง');
 
+  var data = parseArticleRaw_(raw);
+
+  return {
+    title: String(data.title || '').trim(),
+    metaDescription: String(data.metaDescription || '').trim(),
+    excerpt: String(data.excerpt || '').trim(),
+    body: String(data.body || '').trim(),
+    tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
+    raw: raw
+  };
+}
+
+/** แปลง raw (ข้อความ JSON ดิบจาก Gemini หรือ Groq) เป็น object ที่ใช้ต่อได้ */
+function parseArticleRaw_(raw) {
   var data = null;
   try {
     data = JSON.parse(raw);
   } catch (e) {
-    // เผื่อ Gemini ใส่ ```json ... ``` มาครอบ
     var match = raw.match(/\{[\s\S]*\}/);
     if (match) {
       try { data = JSON.parse(match[0]); } catch (e2) { data = null; }
@@ -1199,15 +1229,67 @@ function parseGeminiResponse_(responseText) {
       tags: []
     };
   }
+  return data;
+}
 
-  return {
-    title: String(data.title || '').trim(),
-    metaDescription: String(data.metaDescription || '').trim(),
-    excerpt: String(data.excerpt || '').trim(),
-    body: String(data.body || '').trim(),
-    tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
-    raw: raw
+/** เรียก Groq API (OpenAI-compatible) เป็นทางสำรอง */
+function askGroq_(prompt, cfg) {
+  var url = 'https://api.groq.com/openai/v1/chat/completions';
+  var payload = {
+    model: cfg.groqModel || 'llama-3.3-70b-versatile',
+    messages: [
+      { role: 'system', content: 'ตอบเป็น JSON อย่างเดียวเท่านั้น ห้ามมีข้อความอื่นนอก JSON' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: cfg.temperature || 0.8,
+    max_tokens: 8192,
+    response_format: { type: 'json_object' }
   };
+
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + cfg.groqKey },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  for (var attempt = 1; attempt <= 3; attempt++) {
+    var res = UrlFetchApp.fetch(url, options);
+    var code = res.getResponseCode();
+    var text = res.getContentText();
+
+    if (code === 200) {
+      var data = {};
+      try { data = JSON.parse(text); } catch (e) { throw new Error('อ่าน response ของ Groq ไม่ได้: ' + text.slice(0, 200)); }
+      var raw = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+      if (!raw) throw new Error('Groq คืนข้อความว่าง');
+      raw = raw.trim();
+      var article = parseArticleRaw_(raw);
+      article.raw = raw;
+      return article;
+    }
+
+    if (code === 429 || code >= 500) {
+      Utilities.sleep(Math.pow(2, attempt) * 2500);
+      continue;
+    }
+    throw new Error('Groq HTTP ' + code + ': ' + text.slice(0, 300));
+  }
+
+  throw new Error('Groq ล่มติดต่อกัน — ลองใหม่ภายหลัง');
+}
+
+/** ADMIN: ทดสอบ Groq โดยเฉพาะ ( ?run=testGroq ) */
+function testGroq() {
+  var cfg = getConfig_();
+  if (!cfg.groqKey) return 'ยังไม่มี GROQ_API_KEY — เพิ่มใน Project Settings > Script Properties';
+  try {
+    var out = askGroq_('ตอบ JSON: {"title":"ทดสอบ","body":"สวัสดี"}', cfg);
+    return 'Groq ใช้งานได้ ✔ — ' + out.body.slice(0, 120);
+  } catch (err) {
+    return 'Groq ใช้งานไม่ได้ ✖ — ' + err.message;
+  }
 }
 
 /** ทดสอบการเชื่อมต่อ Gemini จากเมนู */
@@ -1579,6 +1661,7 @@ var ADMIN_FUNCTIONS = [
   'testPlaces',
   'testGitHub',
   'testGemini',
+  'testGroq',
   'listGeminiModels',
   'setModelGemini25Flash',
   'setModelGemini25FlashLite',
