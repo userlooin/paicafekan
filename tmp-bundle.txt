@@ -34,6 +34,7 @@ var STATUS = {
   READY: 'ready',
   PROCESSING: 'processing',
   PENDING: 'pending',
+  SCHEDULED: 'scheduled',
   PUBLISHED: 'published',
   REJECTED: 'rejected',
   ERROR: 'error'
@@ -232,7 +233,7 @@ function hasReadyRows_(sheet, lastRow) {
   return false;
 }
 
-/** นับร่างของวันนี้ที่สร้างไปแล้ว (ทั้งที่รออนุมัติและกำลังสร้าง) */
+/** นับร่างของวันนี้ที่ใช้โควตาไปแล้ว (รออนุมัติ/กำลังสร้าง/ตั้งคิวแล้ว/โพสต์แล้ว) */
 function countPendingToday_(sheet, dateKey, lastRow) {
   if (lastRow < 2) return 0;
   var vals = sheet.getRange(2, COL.STATUS, lastRow - 1, COL.BATCH - COL.STATUS + 1).getValues();
@@ -241,7 +242,8 @@ function countPendingToday_(sheet, dateKey, lastRow) {
     var st = String(vals[i][0] || '').trim().toLowerCase();
     var batch = String(vals[i][COL.BATCH - COL.STATUS] || '').trim();
     if (batch !== dateKey) continue;
-    if (st === STATUS.PENDING || st === STATUS.PROCESSING) n++;
+    if (st === STATUS.PENDING || st === STATUS.PROCESSING ||
+        st === STATUS.SCHEDULED || st === STATUS.PUBLISHED) n++;
   }
   return n;
 }
@@ -419,6 +421,7 @@ function setStatus_(sheet, row, status, note) {
     ready: '#FFF2CC',
     processing: '#D9E7FD',
     pending: '#FCE8B2',
+    scheduled: '#D9EAD3',
     published: '#C9DAF8',
     rejected: '#EAD1DC',
     error: '#F4CCCC'
@@ -457,6 +460,29 @@ function dumpSheet() {
     };
   });
   return { ssId: ss.getId(), ssName: ss.getName(), sheet: sheet.getName(), lastRow: last, rows: out };
+}
+
+/** DEBUG: อ่าน log ล่าสุด (เรียกผ่าน ?run=dumpLog) */
+function dumpLog() {
+  var cfg = getConfig_();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(cfg.logSheet);
+  if (!sh) return { rows: [] };
+  var last = sh.getLastRow();
+  if (last < 2) return { rows: [] };
+  var n = Math.min(last - 1, 60);
+  var vals = sh.getRange(last - n + 1, 1, n, 5).getValues();
+  return {
+    rows: vals.map(function (r) {
+      return {
+        time: r[0] instanceof Date ? Utilities.formatDate(r[0], cfg.timezone, 'yyyy-MM-dd HH:mm:ss') : String(r[0]),
+        level: String(r[1]),
+        cafe: String(r[2]),
+        row: String(r[3]),
+        msg: String(r[4]).slice(0, 220)
+      };
+    })
+  };
 }
 
 /** ตั้งหัวตารางให้ตรงกับที่โค้ดต้องการ */
@@ -815,19 +841,41 @@ var Places = {
   /** ดาวน์โหลดรูป -> { b64, ext } ; ext = jpg/png/gif/webp (ตรวจจาก magic bytes) */
   photoFile_: function (cfg, photoRef, width) {
     if (!photoRef) return null;
+    var base = String((cfg && cfg.siteBase) || '').replace(/\/+$/, '');
+    var tries = [photoRef];
+    // ถ้าดาวน์โหลดตรงไม่ได้ (เว็บต้นทางบล็อก) -> ลองผ่าน image proxy ของเว็บเรา
+    if (base && String(photoRef).indexOf(base + '/api/img') !== 0) {
+      tries.push(base + '/api/img?u=' + encodeURIComponent(photoRef));
+    }
+    for (var i = 0; i < tries.length; i++) {
+      var f = Places.downloadImage_(tries[i]);
+      if (f) return f;
+    }
+    return null;
+  },
+
+  /** ดาวน์โหลด + ตรวจว่าเป็นไฟล์ภาพจริง */
+  downloadImage_: function (url) {
     try {
-      var res = Places.fetch_(photoRef);
-      if (res.getResponseCode() !== 200) return null;
+      var res = Places.fetch_(url);
+      var code = res.getResponseCode();
+      if (code !== 200) {
+        log_('WARN', '-', '-', 'โหลดรูปไม่สำเร็จ (' + code + '): ' + String(url).slice(0, 120));
+        return null;
+      }
       var bytes = res.getBlob().getBytes();
-      if (!bytes.length || bytes.length > PHOTO_MAX_BYTES) return null;
+      if (!bytes.length || bytes.length > PHOTO_MAX_BYTES) {
+        log_('WARN', '-', '-', 'รูปว่างหรือใหญ่เกิน: ' + String(url).slice(0, 120));
+        return null;
+      }
       var ext = imageType_(bytes);
       if (!ext) {
-        log_('WARN', '-', '-', 'ลิงก์รูปไม่ใช่ไฟล์ภาพ: ' + String(photoRef).slice(0, 120));
+        log_('WARN', '-', '-', 'ลิงก์ไม่ใช่ไฟล์ภาพ: ' + String(url).slice(0, 120));
         return null;
       }
       return { b64: Utilities.base64Encode(bytes), ext: ext };
     } catch (e) {
-      log_('WARN', '-', '-', 'ดาวน์โหลดรูปไม่ได้: ' + e.message);
+      log_('WARN', '-', '-', 'ดาวน์โหลดรูปไม่ได้: ' + e.message + ' | ' + String(url).slice(0, 100));
       return null;
     }
   },
@@ -1397,6 +1445,8 @@ var ADMIN_FUNCTIONS = [
   'publishAllPending',
   'resendPending',
   'dumpSheet',
+  'dumpLog',
+  'runPublishQueue',
   'runNow'
 ];
 
@@ -1479,16 +1529,16 @@ var Approve = {
       return 'empty';
     }
 
-    // อนุมัติทั้งหมด
+    // อนุมัติทั้งหมด -> ตั้งคิวโพสต์ตามเวลา (09:00 / 12:00 / 17:00)
     if (/^(ok|okay|โอเค|ตกลง|อนุมัติ|โพส|โพสต์|yes|ได้)$/i.test(low)) {
-      Line.reply_(replyToken, [Line.text('รับทราบ กำลังโพสต์ ' + items.length + ' ร้าน... ⏳')]);
-      var results = Approve.publishAll_(cfg);
-      var lines = ['✅ โพสต์เสร็จแล้ว ' + results.ok + '/' + results.total + ' ร้าน'];
-      results.items.forEach(function (r) {
-        lines.push((r.ok ? '• ' : '✖ ') + r.name + (r.ok ? '\n  ' + r.url : '\n  ' + r.error));
+      var plan = Approve.scheduleAll_(cfg, items);
+      var lines = ['รับทราบ ✅ ตั้งคิวโพสต์ ' + plan.length + ' ร้าน ตามเวลา:'];
+      plan.forEach(function (p, i) {
+        lines.push((i + 1) + '. ' + p.name + ' — ' + p.when);
       });
-      Line.push_([Line.text(lines.join('\n'))]);
-      return 'published';
+      lines.push('', 'ระบบจะโพสต์ขึ้นเว็บเอง แล้วแจ้งผลในแชทนี้อีกครั้ง');
+      Line.reply_(replyToken, [Line.text(lines.join('\n'))]);
+      return 'scheduled';
     }
 
     // เปลี่ยนร้านที่ n
@@ -1525,7 +1575,7 @@ var Approve = {
 
     Line.reply_(replyToken, [Line.text([
       'คำสั่งที่ใช้ได้',
-      '• ok = โพสต์ทั้งหมด',
+      '• ok = อนุมัติ แล้วโพสต์ตามเวลา ' + postSlots_(cfg).join(' / '),
       '• 2 ไม่เอา = เปลี่ยนร้านที่ 2',
       '• ดู = ดูรายการที่รออนุมัติ'
     ].join('\n'))]);
@@ -1588,6 +1638,28 @@ var Approve = {
     PropertiesService.getScriptProperties().deleteProperty('PENDING_ROWS');
     var okCount = results.filter(function (r) { return r.ok; }).length;
     return { ok: okCount, total: results.length, items: results };
+  },
+
+  /** ตั้งคิวโพสต์ตามเวลา (ยังไม่ขึ้นเว็บจนถึงเวลาสล็อต) */
+  scheduleAll_: function (cfg, items) {
+    var now = Date.now() + 2 * 60 * 1000;
+    var slots = nextSlots_(cfg, now, items.length);
+    var queue = readQueue_(cfg);
+    var sheet = getSheet_(cfg.sheetName);
+    var plan = [];
+
+    items.forEach(function (it, i) {
+      var at = slots[i] || (now + (i + 1) * 60 * 60 * 1000);
+      queue = queue.filter(function (q) { return q.row !== it.row; });
+      queue.push({ row: it.row, slug: it.slug, name: it.name, at: at });
+      setStatus_(sheet, it.row, STATUS.SCHEDULED, 'จะโพสต์ ' + slotLabel_(cfg, at));
+      plan.push({ name: it.name, at: at, when: slotLabel_(cfg, at) });
+    });
+
+    writeQueue_(cfg, queue);
+    PropertiesService.getScriptProperties().deleteProperty('PENDING_ROWS');
+    log_('OK', '-', '-', 'ตั้งคิวโพสต์: ' + plan.map(function (p) { return p.name + ' ' + p.when; }).join(' | '));
+    return plan;
   }
 };
 
@@ -1610,6 +1682,155 @@ function resendPending() {
   Line.pushBatchApproval(items);
   log_('OK', '-', '-', 'ส่ง LINE ซ้ำ ' + items.length + ' ร้าน');
   return 'ส่งแล้ว ' + items.length + ' ร้าน';
+}
+
+/* ============================================================
+ * คิวโพสต์ตามเวลา (09:00 / 12:00 / 17:00 เวลาไทย)
+ * ============================================================ */
+
+var DEFAULT_POST_SLOTS = '09:00,12:00,17:00';
+
+/** เวลาสล็อตที่ใช้อยู่ (แก้ได้ด้วย Script Property POST_SLOTS = "09:00,12:00,17:00") */
+function postSlots_(cfg) {
+  var raw = '';
+  try { raw = PropertiesService.getScriptProperties().getProperty('POST_SLOTS') || ''; } catch (e) {}
+  var out = [];
+  String(raw || DEFAULT_POST_SLOTS).split(/[,\s]+/).forEach(function (s) {
+    var m = String(s).trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return;
+    var h = parseInt(m[1], 10), mi = parseInt(m[2], 10);
+    if (h > 23 || mi > 59) return;
+    out.push((h < 10 ? '0' : '') + h + ':' + (mi < 10 ? '0' : '') + mi);
+  });
+  out.sort();
+  return out.length ? out : DEFAULT_POST_SLOTS.split(',');
+}
+
+/** เวลาไทย (UTC+7) -> epoch ms */
+function bangkokTs_(dayStr, hhmm) {
+  return new Date(dayStr + 'T' + hhmm + ':00+07:00').getTime();
+}
+
+/** สล็อตถัดไป n รายการ หลังเวลาที่กำหนด */
+function nextSlots_(cfg, afterTs, n) {
+  var tz = (cfg && cfg.timezone) || 'Asia/Bangkok';
+  var slots = postSlots_(cfg);
+  var out = [];
+  for (var d = 0; d < 14 && out.length < n; d++) {
+    var day = Utilities.formatDate(new Date(afterTs + d * 86400000), tz, 'yyyy-MM-dd');
+    for (var i = 0; i < slots.length && out.length < n; i++) {
+      var ts = bangkokTs_(day, slots[i]);
+      if (ts > afterTs) out.push(ts);
+    }
+  }
+  return out;
+}
+
+/** ป้ายเวลาที่อ่านง่าย: วันนี้ 12:00 / พรุ่งนี้ 09:00 / 5 พ.ย. 17:00 */
+function slotLabel_(cfg, ts) {
+  var tz = (cfg && cfg.timezone) || 'Asia/Bangkok';
+  var now = Date.now();
+  var day = Utilities.formatDate(new Date(ts), tz, 'yyyy-MM-dd');
+  var today = Utilities.formatDate(new Date(now), tz, 'yyyy-MM-dd');
+  var tomorrow = Utilities.formatDate(new Date(now + 86400000), tz, 'yyyy-MM-dd');
+  var hm = Utilities.formatDate(new Date(ts), tz, 'HH:mm');
+  if (day === today) return 'วันนี้ ' + hm;
+  if (day === tomorrow) return 'พรุ่งนี้ ' + hm;
+  return Utilities.formatDate(new Date(ts), tz, 'd MMM') + ' ' + hm;
+}
+
+function readQueue_(cfg) {
+  try {
+    var arr = JSON.parse(PropertiesService.getScriptProperties().getProperty('PUBLISH_QUEUE') || '[]');
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeQueue_(cfg, queue) {
+  var props = PropertiesService.getScriptProperties();
+  var clean = (queue || []).slice().sort(function (a, b) { return a.at - b.at; });
+  if (!clean.length) {
+    props.deleteProperty('PUBLISH_QUEUE');
+    return;
+  }
+  props.setProperty('PUBLISH_QUEUE', JSON.stringify(clean));
+}
+
+var PublishQueue = {
+
+  /** โพสต์รายการที่ถึงเวลาแล้ว (เรียกจาก trigger ทุก 5 นาที) */
+  run_: function (cfg) {
+    var queue = readQueue_(cfg);
+    if (!queue.length) return { due: 0, ok: 0, total: 0 };
+
+    var now = Date.now();
+    var due = queue.filter(function (q) { return Number(q.at) <= now; });
+    if (!due.length) return { due: 0, ok: 0, total: 0, next: queue[0].at };
+
+    var sheet = getSheet_(cfg.sheetName);
+    var items = [];
+    due.forEach(function (q) {
+      var it = loadPending_(cfg, q.row);
+      if (it) items.push(it);
+      else setStatus_(sheet, q.row, STATUS.ERROR, 'ไม่พบไฟล์ร่างที่รอโพสต์ — ข้ามคิว');
+    });
+
+    var results = [];
+    if (items.length) {
+      try {
+        var published = Publish.publishItems_(cfg, items);
+        published.forEach(function (p) {
+          sheet.getRange(p.row, COL.POST_URL).setValue(p.url);
+          setStatus_(sheet, p.row, STATUS.PUBLISHED, 'โพสต์ตามเวลาแล้ว: ' + p.url);
+          deletePending_(cfg, p.row);
+          results.push({ ok: true, name: p.name, url: p.url });
+        });
+        log_('OK', '-', '-', 'โพสต์ตามเวลา ' + results.length + ' ร้าน');
+      } catch (err) {
+        var msg = String(err && err.message ? err.message : err).slice(0, 400);
+        log_('ERROR', '-', '-', 'โพสต์ตามเวลาไม่สำเร็จ: ' + msg);
+        items.forEach(function (it) {
+          setStatus_(sheet, it.row, STATUS.ERROR, 'โพสต์ตามเวลาไม่สำเร็จ: ' + msg);
+          results.push({ ok: false, name: it.name, error: msg });
+        });
+      }
+    }
+
+    // เอาออกจากคิวทั้งที่สำเร็จและ error (ไม่ให้ค้าง)
+    var doneRows = due.map(function (q) { return q.row; });
+    writeQueue_(cfg, readQueue_(cfg).filter(function (q) {
+      return doneRows.indexOf(q.row) === -1;
+    }));
+
+    // แจ้งผลใน LINE
+    try {
+      if (results.length) {
+        var okN = results.filter(function (r) { return r.ok; }).length;
+        var lines = ['📣 โพสต์ตามเวลา ' + okN + '/' + results.length + ' ร้าน'];
+        results.forEach(function (r) {
+          lines.push((r.ok ? '✅ ' : '✖ ') + r.name + (r.ok ? '\n  ' + r.url : '\n  ' + r.error));
+        });
+        Line.push_([Line.text(lines.join('\n'))]);
+      }
+    } catch (e) {
+      log_('WARN', '-', '-', 'แจ้ง LINE ไม่สำเร็จ: ' + e.message);
+    }
+
+    return {
+      ok: results.filter(function (r) { return r.ok; }).length,
+      total: results.length,
+      items: results
+    };
+  }
+};
+
+/** trigger: ตรวจคิวโพสต์ตามเวลา */
+function runPublishQueue() {
+  return withLock_(function () {
+    return PublishQueue.run_(getConfig_());
+  });
 }
 
 /* ---------------------- Site.gs ---------------------- */
@@ -2182,7 +2403,7 @@ var PEAK_TIMES = [
 
 var TIMEZONE = 'Asia/Bangkok';
 
-/** ติดตั้ง trigger 1 รอบ/วัน 06:50 */
+/** ติดตั้ง trigger 1 รอบ/วัน 06:50 + ตัวตรวจคิวโพสต์ทุก 5 นาที */
 function setupTriggers() {
   removeTriggers();
   PEAK_TIMES.forEach(function (t) {
@@ -2194,7 +2415,11 @@ function setupTriggers() {
       .inTimezone(TIMEZONE)
       .create();
   });
-  log_('INFO', '-', '-', 'ติดตั้ง trigger เรียบร้อย: 06:50 ทุกวัน');
+  ScriptApp.newTrigger('runPublishQueue')
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+  log_('INFO', '-', '-', 'ติดตั้ง trigger เรียบร้อย: สร้างร่าง 06:50 + ตรวจคิวโพสต์ทุก 5 นาที');
   return listTriggers_();
 }
 
@@ -2204,7 +2429,7 @@ function removeTriggers() {
   var removed = 0;
   triggers.forEach(function (tr) {
     var fn = tr.getHandlerFunction();
-    if (fn === 'runNow' || fn === 'runDailyBatch') {
+    if (fn === 'runNow' || fn === 'runDailyBatch' || fn === 'runPublishQueue') {
       ScriptApp.deleteTrigger(tr);
       removed++;
     }
@@ -2247,7 +2472,7 @@ function checkSetup() {
   });
   if (triggers.length === 0) problems.push('ยังไม่มีตัวตั้งเวลา (กด "ติดตั้งตัวตั้งเวลา")');
 
-  var counts = { ready: 0, pending: 0 };
+  var counts = { ready: 0, pending: 0, scheduled: 0 };
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) {
     var statuses = sheet.getRange(2, COL.STATUS, lastRow - 1, 1).getValues();
@@ -2255,8 +2480,11 @@ function checkSetup() {
       var s = String(r[0]).trim().toLowerCase();
       if (s === STATUS.READY) counts.ready++;
       if (s === STATUS.PENDING) counts.pending++;
+      if (s === STATUS.SCHEDULED) counts.scheduled++;
     });
   }
+
+  var queue = readQueue_(cfg);
 
   var summary = [
     'Gemini: ' + (cfg.apiKey ? 'มี ✔' : 'ไม่มี ✖') + ' (' + cfg.model + ')',
@@ -2267,7 +2495,9 @@ function checkSetup() {
     'เว็บ: ' + cfg.siteBase,
     'รอบละ: ' + cfg.batchSize + ' ร้าน',
     'ตัวตั้งเวลา: ' + triggers.length + ' รายการ',
-    'รออยู่ (ready): ' + counts.ready + ' แถว | รออนุมัติ (pending): ' + counts.pending + ' แถว',
+    'สล็อตโพสต์: ' + postSlots_(cfg).join(' / ') + ' (คิว ' + queue.length + ' รายการ)',
+    'รออยู่ (ready): ' + counts.ready + ' แถว | รออนุมัติ (pending): ' + counts.pending +
+      ' | ตั้งคิวแล้ว: ' + counts.scheduled,
     '',
     problems.length ? 'ต้องแก้:\n- ' + problems.join('\n- ') : 'ทุกอย่างพร้อมใช้งาน ✔'
   ].join('\n');
