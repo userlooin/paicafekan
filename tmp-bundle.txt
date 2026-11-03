@@ -642,24 +642,30 @@ var Places = {
     return photoRef || '';
   },
 
-  /** ดาวน์โหลดรูปเป็น base64 (เอาไป commit ขึ้นเว็บ) */
-  photoBase64_: function (cfg, photoRef, width) {
-    if (!photoRef) return '';
+  /** ดาวน์โหลดรูป -> { b64, ext } ; ext = jpg/png/gif/webp (ตรวจจาก magic bytes) */
+  photoFile_: function (cfg, photoRef, width) {
+    if (!photoRef) return null;
     try {
       var res = Places.fetch_(photoRef);
-      if (res.getResponseCode() !== 200) return '';
-      var blob = res.getBlob();
-      var bytes = blob.getBytes();
-      if (!bytes.length || bytes.length > PHOTO_MAX_BYTES) return '';
-      if (!isImageBytes_(bytes)) {
+      if (res.getResponseCode() !== 200) return null;
+      var bytes = res.getBlob().getBytes();
+      if (!bytes.length || bytes.length > PHOTO_MAX_BYTES) return null;
+      var ext = imageType_(bytes);
+      if (!ext) {
         log_('WARN', '-', '-', 'ลิงก์รูปไม่ใช่ไฟล์ภาพ: ' + String(photoRef).slice(0, 120));
-        return '';
+        return null;
       }
-      return Utilities.base64Encode(bytes);
+      return { b64: Utilities.base64Encode(bytes), ext: ext };
     } catch (e) {
       log_('WARN', '-', '-', 'ดาวน์โหลดรูปไม่ได้: ' + e.message);
-      return '';
+      return null;
     }
+  },
+
+  /** ดาวน์โหลดรูปเป็น base64 (เอาไป commit ขึ้นเว็บ) */
+  photoBase64_: function (cfg, photoRef, width) {
+    var f = Places.photoFile_(cfg, photoRef, width);
+    return f ? f.b64 : '';
   },
 
   /** หาโซนจากที่อยู่แบบหยาบ ๆ */
@@ -697,14 +703,18 @@ function compressHours_(days) {
 }
 
 /** เดาชนิดไฟล์จาก magic bytes (กันลิงก์ที่ดาวน์โหลดได้เป็น HTML) */
+function imageType_(b) {
+  if (!b || b.length < 12) return '';
+  if (b[0] === 0xFF && b[1] === 0xD8) return 'jpg';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return 'png';
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'gif';
+  if (String.fromCharCode(b[0], b[1], b[2], b[3]) === 'RIFF' &&
+      String.fromCharCode(b[8], b[9], b[10], b[11]) === 'WEBP') return 'webp';
+  return '';
+}
+
 function isImageBytes_(b) {
-  if (!b || b.length < 12) return false;
-  var jpg = b[0] === 0xFF && b[1] === 0xD8;
-  var png = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47;
-  var gif = b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46;
-  var webp = String.fromCharCode(b[0], b[1], b[2], b[3]) === 'RIFF' &&
-    String.fromCharCode(b[8], b[9], b[10], b[11]) === 'WEBP';
-  return jpg || png || gif || webp;
+  return !!imageType_(b);
 }
 
 /** normalize ชื่อร้านเพื่อเทียบ */
@@ -1134,11 +1144,12 @@ var Line = {
           ]
         }
       };
-      // LINE รับได้เฉพาะ URL รูปโดยตรง (jpg/png/webp) — ถ้าเป็นลิงก์ Drive/หน้าเว็บ ให้ข้ามรูปไปเลย
-      if (it.photoUrl && /^https?:\/\/[^\s]+\.(jpe?g|png|webp)(\?|#|$)/i.test(it.photoUrl)) {
+      // ส่งรูปผ่าน proxy ของเว็บเรา (/api/img) เพื่อให้ LINE ดึงได้ทุกแหล่ง (Drive / Google Maps / หน้าเว็บร้าน)
+      if (it.photoUrl && /^https?:\/\//i.test(it.photoUrl)) {
+        var base = String(getConfig_().siteBase || '').replace(/\/+$/, '');
         bubble.hero = {
           type: 'image',
-          url: it.photoUrl,
+          url: base + '/api/img?u=' + encodeURIComponent(it.photoUrl),
           size: 'full',
           aspectRatio: '20:13',
           aspectMode: 'cover'
@@ -1841,10 +1852,10 @@ var Publish = {
       var photoPaths = [];
       var refs = (it.photoRefs && it.photoRefs.length) ? it.photoRefs : (it.photoRef ? [it.photoRef] : []);
       refs.forEach(function (ref) {
-        var b64 = Places.photoBase64_(cfg, ref, 1600);
-        if (!b64) return;
-        var p = 'assets/img/posts/' + it.slug + '-' + (photoPaths.length + 1) + '.jpg';
-        files.push({ path: p, content: b64, encoding: 'base64' });
+        var f = Places.photoFile_(cfg, ref, 1600);
+        if (!f) return;
+        var p = 'assets/img/posts/' + it.slug + '-' + (photoPaths.length + 1) + '.' + f.ext;
+        files.push({ path: p, content: f.b64, encoding: 'base64' });
         photoPaths.push(p);
       });
 
