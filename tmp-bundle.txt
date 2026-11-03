@@ -1748,6 +1748,7 @@ var ADMIN_FUNCTIONS = [
   'dumpSheet',
   'dumpLog',
   'resetErrorToReady',
+  'purgeMassShops',
   'runPublishQueue',
   'pauseBatch',
   'runNow'
@@ -2759,6 +2760,29 @@ function removeTriggers() {
     }
   });
   return removed;
+}
+
+/** ADMIN: ลบแถวร้านในรายชื่อห้าม (mass/chain) — เฉพาะแถว ≥ 15 เช่น "คาเฟ่ อเมซอน" */
+function purgeMassShops() {
+  var cfg = getConfig_();
+  var sheet = getSheet_(cfg.sheetName);
+  var words = ['amazon', 'อเมซอน', 'คาเฟ่ อเมซอน'];
+  var lastRow = sheet.getLastRow();
+  var deleted = [];
+  var names = [];
+  for (var r = lastRow; r >= 15; r--) {
+    var name = String(sheet.getRange(r, COL.NAME).getValue() || '').trim();
+    var low = name.toLowerCase();
+    var hit = words.some(function (w) { return low.indexOf(String(w).toLowerCase()) !== -1; });
+    if (hit) {
+      sheet.deleteRow(r);
+      try { deletePending_(cfg, r); } catch (e) {}
+      deleted.push(r);
+      names.push(name);
+    }
+  }
+  log_('WARN', '-', '-', 'ลบแถวห้ามโดยระบบ: ' + (names.join(', ') || '(ไม่พบ)'));
+  return { deleted: deleted.length, rows: deleted, names: names };
 }
 
 /** ADMIN: พัก trigger สร้างร่างเท่านั้น (คิวโพสต์ยังทำงาน โพสต์ที่อนุมัติแล้วจะโพสต์ตามเวลา) */
