@@ -236,14 +236,30 @@ function hasReadyRows_(sheet, lastRow) {
   return false;
 }
 
+/** แปลงค่าในคอลัมน์ BATCH (Date หรือสตริง) -> 'yyyy-MM-dd' (โซน Asia/Bangkok) */
+function batchDateKey_(v, tz) {
+  if (!v) return '';
+  try {
+    if (Object.prototype.toString.call(v) === '[object Date]') {
+      return Utilities.formatDate(v, tz || 'Asia/Bangkok', 'yyyy-MM-dd');
+    }
+    var s = String(v).trim();
+    var d = new Date(s);
+    return isNaN(d.getTime()) ? s.slice(0, 10) : Utilities.formatDate(d, tz || 'Asia/Bangkok', 'yyyy-MM-dd');
+  } catch (e) {
+    return '';
+  }
+}
+
 /** นับร่างของวันนี้ที่ใช้โควตาไปแล้ว (รออนุมัติ/กำลังสร้าง/ตั้งคิวแล้ว/โพสต์แล้ว) */
 function countPendingToday_(sheet, dateKey, lastRow) {
   if (lastRow < 2) return 0;
+  var tz = getConfig_().timezone;
   var vals = sheet.getRange(2, COL.STATUS, lastRow - 1, COL.BATCH - COL.STATUS + 1).getValues();
   var n = 0;
   for (var i = 0; i < vals.length; i++) {
     var st = String(vals[i][0] || '').trim().toLowerCase();
-    var batch = String(vals[i][COL.BATCH - COL.STATUS] || '').trim();
+    var batch = batchDateKey_(vals[i][COL.BATCH - COL.STATUS], tz);
     if (batch !== dateKey) continue;
     if (st === STATUS.PENDING || st === STATUS.PROCESSING ||
         st === STATUS.SCHEDULED || st === STATUS.PUBLISHED) n++;
@@ -446,6 +462,25 @@ function setStatus_(sheet, row, status, note) {
   if (note !== undefined && note !== null && note !== '') {
     sheet.getRange(row, COL.NOTE).setValue(note);
   }
+}
+
+/** ADMIN: คืนแถวที่ error ตั้งแต่แถว 15 เป็นต้นไปกลับเป็น ready (ล้าง error รอบ Gemini โหลด) */
+function resetErrorToReady() {
+  var cfg = getConfig_();
+  var sheet = getSheet_(cfg.sheetName);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 15) return { reset: 0 };
+  var vals = sheet.getRange(15, 1, lastRow - 14, HEADERS.length).getValues();
+  var n = 0;
+  var resetRows = [];
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][COL.STATUS - 1] || '').trim().toLowerCase() !== 'error') continue;
+    setStatus_(sheet, i + 15, STATUS.READY, 'รีเซ็ต รอสร้างใหม่');
+    resetRows.push(i + 15);
+    n++;
+  }
+  log_('INFO', '-', '-', 'รีเซ็ต error->ready แถว: ' + resetRows.join(', '));
+  return { reset: n, rows: resetRows };
 }
 
 /** อ่านข้อมูลในชีตแบบสรุป (เรียกผ่าน ?run=dumpSheet เพื่อตรวจงาน) */
@@ -1472,6 +1507,7 @@ var ADMIN_FUNCTIONS = [
   'resendPending',
   'dumpSheet',
   'dumpLog',
+  'resetErrorToReady',
   'runPublishQueue',
   'runNow'
 ];
@@ -2514,8 +2550,12 @@ function checkSetup() {
     }
   }
 
-  var triggers = ScriptApp.getProjectTriggers().filter(function (t) {
+  var allTriggers = ScriptApp.getProjectTriggers();
+  var triggers = allTriggers.filter(function (t) {
     return t.getHandlerFunction() === 'runDailyBatch';
+  });
+  var queueTriggers = allTriggers.filter(function (t) {
+    return t.getHandlerFunction() === 'runPublishQueue';
   });
   if (triggers.length === 0) problems.push('ยังไม่มีตัวตั้งเวลา (กด "ติดตั้งตัวตั้งเวลา")');
 
@@ -2541,7 +2581,7 @@ function checkSetup() {
     'GitHub: ' + (cfg.ghToken && cfg.ghOwner ? (cfg.ghOwner + '/' + cfg.ghRepo + ' ✔') : 'ยังไม่ครบ ✖'),
     'เว็บ: ' + cfg.siteBase,
     'รอบละ: ' + cfg.batchSize + ' ร้าน',
-    'ตัวตั้งเวลา: ' + triggers.length + ' รายการ',
+    'ตัวตั้งเวลา: ' + triggers.length + ' รายการ (สร้างร่าง) + ' + queueTriggers.length + ' รายการ (ตรวจคิวโพสต์)',
     'สล็อตโพสต์: ' + postSlots_(cfg).join(' / ') + ' (คิว ' + queue.length + ' รายการ)',
     'รออยู่ (ready): ' + counts.ready + ' แถว | รออนุมัติ (pending): ' + counts.pending +
       ' | ตั้งคิวแล้ว: ' + counts.scheduled,
