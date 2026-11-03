@@ -170,6 +170,13 @@ function runDailyBatch_() {
         built.push(item);
       } catch (err) {
         var msg = String(err && err.message ? err.message : err).slice(0, 400);
+        // ปัญหาชั่วคราว (Nominatim/Gemini 429/503/timeout) -> คืนเป็น ready ไม่ล็อคเป็น error
+        var transient = /Nominatim error (429|428|408|5\d\d)|Gemini HTTP (429|5\d\d)|time out|timeout|temporarily|rate limit/i.test(msg);
+        if (transient) {
+          setStatus_(sheet, sheetRow, STATUS.READY, 'รอระบบพร้อม (วันนี้ไม่พร้อม) — ' + msg.slice(0, 120));
+          log_('WARN', name, sheetRow, 'เลื่อนแบทช์ (ชั่วคราว): ' + msg.slice(0, 200));
+          continue;
+        }
         setStatus_(sheet, sheetRow, STATUS.ERROR, msg);
         log_('ERROR', name, sheetRow, msg);
         // Gemini/Nominatim ล่ม/โควตาหมด ติดกัน 2 ร้าน -> หยุดแบทช์นี้เลย (ไม่ตั้ง continuation)
@@ -1232,6 +1239,21 @@ function parseArticleRaw_(raw) {
       tags: []
     };
   }
+
+  // Groq/Gemini ตอบ tags มาเป็นสตริงได้ — บังคับให้เป็น array
+  if (!Array.isArray(data.tags)) {
+    data.tags = typeof data.tags === 'string'
+      ? data.tags.split(/[,\s]+/).map(function (s) { return s.trim(); }).filter(Boolean)
+      : [];
+  }
+  if (data.tags.length > 12) data.tags = data.tags.slice(0, 12);
+
+  data.title = String(data.title || '');
+  data.body = String(data.body || '');
+  data.metaDescription = String(data.metaDescription || '');
+  data.excerpt = String(data.excerpt || '');
+  data.tags = data.tags.map(String);
+
   return data;
 }
 
