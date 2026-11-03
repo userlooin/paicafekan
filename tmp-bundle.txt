@@ -170,6 +170,9 @@ function runDailyBatch_() {
         var msg = String(err && err.message ? err.message : err).slice(0, 400);
         setStatus_(sheet, sheetRow, STATUS.ERROR, msg);
         log_('ERROR', name, sheetRow, msg);
+        try {
+          Line.push_([Line.text('⚠️ สร้างร่างไม่สำเร็จ แถว ' + sheetRow + ' (' + (name || '-') + '):\n' + msg)]);
+        } catch (e) {}
       }
     }
   }
@@ -325,6 +328,16 @@ function buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateK
   var place = Places.resolve(name, zone, usedPlaceIds);
   if (!place) throw new Error('หาไม่เจอใน OpenStreetMap: ' + (name || zone) + ' — ลองใส่ชื่อให้ตรงขึ้น หรือเพิ่มโซน');
 
+  // ตรวจลิงก์รูปก่อนยิง Gemini (ถ้าลิงก์รูปทั้งหมดโหลดไม่ได้ = error ทันที ไม่เสีย token)
+  var manualPhotos = parsePhotoUrls_(sheet.getRange(sheetRow, COL.PHOTO_IN).getValue());
+  var photoCheck = null;
+  if (manualPhotos.length) {
+    photoCheck = preflightPhotos_(cfg, manualPhotos);
+    if (!photoCheck.ok.length) {
+      throw new Error('รูป ' + manualPhotos.length + ' ลิงก์โหลดไม่ได้เลย — ต้องเป็นลิงก์รูปตรง ๆ ที่แชร์ "ทุกคนที่มีลิงก์" (หรือรูปจาก Google Drive) ตรวจคอลัมน์ M แล้วใส่ ready ใหม่');
+    }
+  }
+
   sheet.getRange(sheetRow, COL.NAME).setValue(place.name);
   sheet.getRange(sheetRow, COL.ZONE).setValue(zone || place.zone || '');
   sheet.getRange(sheetRow, COL.PLACE_ID).setValue(place.placeId);
@@ -337,7 +350,7 @@ function buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateK
 
   var doc = createDraftDoc_(place.name, zone || place.zone, article, cfg);
 
-  var manualPhotos = parsePhotoUrls_(sheet.getRange(sheetRow, COL.PHOTO_IN).getValue());
+  var usablePhotos = (photoCheck && photoCheck.ok.length) ? photoCheck.ok : manualPhotos;
 
   var item = {
     row: sheetRow,
@@ -355,10 +368,10 @@ function buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateK
     mapsUrl: place.mapsUrl || '',
     hours: place.hours || '',
     rating: place.rating || '',
-    photoRefs: manualPhotos.length ? manualPhotos : (place.photoRef ? [place.photoRef] : []),
-    photoRef: manualPhotos[0] || place.photoRef || '',
-    photoUrl: manualPhotos[0] || place.photoUrl || '',
-    photoManual: manualPhotos.length > 0,
+    photoRefs: usablePhotos.length ? usablePhotos : (place.photoRef ? [place.photoRef] : []),
+    photoRef: usablePhotos[0] || place.photoRef || '',
+    photoUrl: usablePhotos[0] || place.photoUrl || '',
+    photoManual: usablePhotos.length > 0,
     docUrl: doc.url
   };
 
@@ -520,6 +533,19 @@ function normalizePhotoUrl_(u) {
   if (m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
   if (/^https?:\/\//i.test(s)) return s;  // ตรวจ content-type ตอนดาวน์โหลดอีกที
   return '';
+}
+
+/** ตรวจลิงก์รูปตอนสร้างร่าง (ลามก่อนยิง Gemini) */
+function preflightPhotos_(cfg, urls) {
+  var ok = [], failed = [];
+  for (var i = 0; i < urls.length; i++) {
+    var f = Places.photoFile_(cfg, urls[i], 1600);
+    if (f) ok.push(urls[i]); else failed.push(urls[i]);
+  }
+  if (failed.length) {
+    log_('WARN', '-', '-', 'โหลดรูปไม่ได้ ' + failed.length + ' ลิงก์: ' + failed.join(' | '));
+  }
+  return { ok: ok, failed: failed };
 }
 
 /** แยกช่อง M ที่อาจมีหลายลิงก์ (ขึ้นบรรทัดใหม่ / คั่นด้วย , หรือเว้นวรรค) */
@@ -1619,14 +1645,19 @@ var Approve = {
     if (!items.length) return { ok: 0, total: 0, items: [] };
 
     try {
-      var published = Publish.publishItems_(cfg, items);
-      published.forEach(function (p) {
+      var res = Publish.publishItems_(cfg, items);
+      res.out.forEach(function (p) {
         sheet.getRange(p.row, COL.POST_URL).setValue(p.url);
         setStatus_(sheet, p.row, STATUS.PUBLISHED, 'โพสต์แล้ว: ' + p.url);
         deletePending_(cfg, p.row);
         results.push({ ok: true, name: p.name, url: p.url });
       });
-      log_('OK', '-', '-', 'โพสต์สำเร็จ ' + results.length + ' ร้าน');
+      (res.failed || []).forEach(function (f) {
+        setStatus_(sheet, f.row, STATUS.ERROR, f.error);
+        results.push({ ok: false, name: f.name, error: f.error });
+      });
+      var okN = results.filter(function (r) { return r.ok; }).length;
+      log_('OK', '-', '-', 'โพสต์สำเร็จ ' + okN + '/' + results.length + ' ร้าน');
     } catch (err) {
       var msg = String(err && err.message ? err.message : err).slice(0, 400);
       log_('ERROR', '-', '-', 'โพสต์ไม่สำเร็จ: ' + msg);
@@ -1780,12 +1811,16 @@ var PublishQueue = {
     var results = [];
     if (items.length) {
       try {
-        var published = Publish.publishItems_(cfg, items);
-        published.forEach(function (p) {
+        var res = Publish.publishItems_(cfg, items);
+        res.out.forEach(function (p) {
           sheet.getRange(p.row, COL.POST_URL).setValue(p.url);
           setStatus_(sheet, p.row, STATUS.PUBLISHED, 'โพสต์ตามเวลาแล้ว: ' + p.url);
           deletePending_(cfg, p.row);
           results.push({ ok: true, name: p.name, url: p.url });
+        });
+        (res.failed || []).forEach(function (f) {
+          setStatus_(sheet, f.row, STATUS.ERROR, f.error);
+          results.push({ ok: false, name: f.name, error: f.error });
         });
         log_('OK', '-', '-', 'โพสต์ตามเวลา ' + results.length + ' ร้าน');
       } catch (err) {
@@ -2229,7 +2264,7 @@ function makeSlug_(name, placeId) {
 
 var Publish = {
 
-  /** โพสต์รายการที่อนุมัติแล้วทั้งหมดใน commit เดียว */
+  /** โพสต์รายการที่อนุมัติแล้ว; รายการที่มีลิงก์รูปแต่ดึงไม่ได้เลยถูกตัดทิ้ง ไม่ถูก commit */
   publishItems_: function (cfg, items) {
     if (!cfg.ghToken) throw new Error('ยังไม่ได้ตั้งค่า GITHUB_TOKEN');
     if (!cfg.ghOwner) throw new Error('ยังไม่ได้ตั้งค่า GITHUB_OWNER');
@@ -2237,6 +2272,7 @@ var Publish = {
     var manifest = Publish.loadManifest_(cfg);
     var files = [];
     var out = [];
+    var failed = [];
     var today = Utilities.formatDate(new Date(), cfg.timezone, 'yyyy-MM-dd');
 
     items.forEach(function (it) {
@@ -2249,6 +2285,13 @@ var Publish = {
         files.push({ path: p, content: f.b64, encoding: 'base64' });
         photoPaths.push(p);
       });
+
+      // มีลิงก์รูปแต่ดึงไม่ได้เลย -> ไม่โพสต์ (เตือนใน LINE จะมีให้แก้ลิงก์)
+      if (refs.length && photoPaths.length === 0) {
+        log_('WARN', '-', '-', 'ข้ามโพสต์ ' + it.name + ': รูปโหลดไม่ได้เลย (' + refs.length + ' ลิงก์)');
+        failed.push({ row: it.row, name: it.name, error: 'รูป ' + refs.length + ' ลิงก์โหลดไม่ได้ (ทั้งหมด) — ตรวจคอลัมน์ M ว่าแชร์ "ทุกคนที่มีลิงก์" แล้วใส่ ready ใหม่' });
+        return;
+      }
 
       // ลบข้อมูลเก่าของสลักเดียวกัน (ถ้ามี) แล้วใส่ใหม่
       manifest = manifest.filter(function (m) { return m.slug !== it.slug; });
@@ -2272,6 +2315,10 @@ var Publish = {
       out.push({ row: it.row, name: it.name, url: cfg.siteBase + '/posts/' + it.slug + '/' });
     });
 
+    if (!out.length && failed.length) {
+      return { published: [], failed: failed, out: out };
+    }
+
     // เก็บไว้แค่ 60 โพสต์ล่าสุด
     manifest = manifest.slice(0, 60);
 
@@ -2280,10 +2327,10 @@ var Publish = {
     files.push({ path: 'sitemap.xml', content: Site.renderSitemap_(manifest, cfg), encoding: 'utf-8' });
     files.push({ path: 'feed.xml', content: Site.renderFeed_(manifest, cfg), encoding: 'utf-8' });
 
-    var label = items.map(function (it) { return it.name; }).join(', ');
-    GitHub.commit_(cfg, 'post: ' + label, files);
+    var publishedItems = out.map(function (p) { return p.name; }).join(', ');
+    GitHub.commit_(cfg, 'post: ' + publishedItems, files);
 
-    return out;
+    return { published: out, failed: failed, out: out };
   },
 
   /** อ่าน manifest จาก repo (ถ้ายังไม่มี = array ว่าง) */
