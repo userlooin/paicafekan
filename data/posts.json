@@ -3,17 +3,23 @@
     "slug": "factory-coffee-47185",
     "name": "Factory Coffee",
     "zone": "พญาไท",
-    "title": "รีวิว Factory Coffee คาเฟ่พญาไทระดับแชมป์ กาแฟดี บรรยากาศเท่ที่ไม่ควรพลาด",
-    "excerpt": "พาเช็กอิน Factory Coffee คาเฟ่พญาไทชื่อดังที่คอกาแฟต้องมาสัมผัส ลิ้มลองเมนูซิกเนเจอร์รสชาติเข้มข้น ในบรรยากาศสุดเท่ใกล้รถไฟฟ้า",
-    "date": "2026-11-03",
-    "photo": "",
-    "photos": [],
+    "title": "Factory Coffee",
+    "excerpt": "รีวิว Factory Coffee คาเฟ่พญาไทบรรยากาศอุตสาหกรรมพร้อมกาแฟคุณภาพและเมนูหลากหลาย เหมาะสำหรับทำงานหรือพักผ่อนในกรุงเทพฯ",
+    "date": "2026-11-04",
+    "photo": "assets/img/posts/factory-coffee-47185-1.webp",
+    "photos": [
+      "assets/img/posts/factory-coffee-47185-1.webp",
+      "assets/img/posts/factory-coffee-47185-2.webp",
+      "assets/img/posts/factory-coffee-47185-3.webp",
+      "assets/img/posts/factory-coffee-47185-4.webp",
+      "assets/img/posts/factory-coffee-47185-5.webp"
+    ],
     "tags": [
-      "#FactoryCoffee",
       "#คาเฟ่พญาไท",
-      "#รีวิวคาเฟ่",
-      "#SpecialtyCoffee",
-      "#คาเฟ่กรุงเทพ"
+      "#FactoryCoffee",
+      "#บรรยากาศอุตสาหกรรม",
+      "#กาแฟคุณภาพ",
+      "#กรุงเทพ"
     ]
   },
   {
