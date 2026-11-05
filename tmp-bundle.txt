@@ -383,7 +383,9 @@ function buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateK
   setStatus_(sheet, sheetRow, STATUS.PROCESSING, 'กำลังเขียนบทความ...');
 
   var article = askGemini_(buildPrompt_(place.name, zone || place.zone, place), cfg);
-  var title = article.title || place.name;
+  var rawTitle = article.title || place.name;
+  // เติมคำบรรยายนำหน้าเหมือนเดิม เช่น "รีวิวคาเฟ่ ชื่อร้าน"
+  var title = /^(รีวิว|รีวิวคาเฟ่|คาเฟ่)/i.test(rawTitle) ? rawTitle : 'รีวิวคาเฟ่ ' + rawTitle;
   var slug = makeSlug_(place.name, place.placeId);
 
   var doc = createDraftDoc_(place.name, zone || place.zone, article, cfg);
