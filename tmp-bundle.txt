@@ -383,9 +383,7 @@ function buildDraftForRow_(cfg, sheet, sheetRow, name, zone, usedPlaceIds, dateK
   setStatus_(sheet, sheetRow, STATUS.PROCESSING, 'กำลังเขียนบทความ...');
 
   var article = askGemini_(buildPrompt_(place.name, zone || place.zone, place), cfg);
-  var rawTitle = article.title || place.name;
-  // เติมคำบรรยายนำหน้าเหมือนเดิม เช่น "รีวิวคาเฟ่ ชื่อร้าน"
-  var title = /^(รีวิว|รีวิวคาเฟ่|คาเฟ่)/i.test(rawTitle) ? rawTitle : 'รีวิวคาเฟ่ ' + rawTitle;
+  var title = article.title || place.name;
   var slug = makeSlug_(place.name, place.placeId);
 
   var doc = createDraftDoc_(place.name, zone || place.zone, article, cfg);
@@ -1082,13 +1080,14 @@ function buildPrompt_(name, zone, place) {
   ].filter(Boolean).join('\n');
 
   return [
-    'คุณคือนักเขียนคอนเทนต์คาเฟ่มืออาชีพของเว็บ "ไปคาเฟ่กัน" (paicafekan.com)',
-    'เขียนรีวิวคาเฟ่ภาษาไทยที่อ่านสนุก เป็นกันเอง ให้ข้อมูลครบ และใช้งานได้จริง',
+    'คุณคือนักเขียนคอนเทนต์ท่องเที่ยวคาเฟ่มืออาชีพของเว็บ "ไปคาเฟ่กัน" (paicafekan.com)',
+    'เขียนบทความแนะนำคาเฟ่ภาษาไทยที่อ่านสนุก เป็นกันเอง ให้ข้อมูลครบ และใช้งานได้จริง',
     '',
     'ข้อมูลร้าน (ข้อมูลจริง ห้ามเปลี่ยนแปลง):',
     facts,
     '',
     'ข้อกำหนด:',
+    '0. ชื่อบทความ (title) ต้องน่าสนใจ ดึงดูดให้คนอยากคลิกเข้ามาอ่าน มีคำบรรยายเกี่ยวกับบรรยากาศหรือจุดเด่นของร้าน เช่น "ดื่มด่ำโลกใต้ท้องทะเลสีครามที่ Blue Whale 392 คาเฟ่พระนครย่านท่าเตียน" หรือ "Sarnies คาเฟ่ตึกเก่าสุดคลาสสิกย่านเจริญกรุง กาแฟเข้มข้น บรันช์จัดเต็มสไตล์สิงคโปร์" ห้ามใช้คำว่า "รีวิว" นำหน้า',
     '1. เนื้อหาประมาณ 700-1,000 คำ',
     '2. ใช้ Markdown: ## หัวข้อย่อย 5 หัวข้อ, ใช้ - นำหน้ารายการ, **ตัวหนา** ได้',
     '3. ต้องมีหัวข้อเหล่านี้ตามลำดับ: ภาพรวมร้าน, บรรยากาศและการตกแต่ง, เมนูและรสชาติ, ราคาและความคุ้มค่า, การเดินทางและที่จอดรถ, สรุปน่าลองไหม',
@@ -1951,16 +1950,25 @@ var Approve = {
     return { ok: okCount, total: results.length, items: results };
   },
 
-  /** ตั้งคิวโพสต์ตามเวลา (ยังไม่ขึ้นเว็บจนถึงเวลาสล็อต) */
+  /** ตั้งคิวโพสต์ตามเวลา (ยังไม่ขึ้นเว็บจนถึงเวลาสล็อต) — skip slot ที่มีอยู่แล้วในคิว */
   scheduleAll_: function (cfg, items) {
     var now = Date.now() + 2 * 60 * 1000;
-    var slots = nextSlots_(cfg, now, items.length);
+    var slots = nextSlots_(cfg, now, items.length * 4);
     var queue = readQueue_(cfg);
+    var occupied = {};
+    queue.forEach(function (q) { occupied[q.at] = true; });
     var sheet = getSheet_(cfg.sheetName);
     var plan = [];
+    var si = 0;
 
-    items.forEach(function (it, i) {
-      var at = slots[i] || (now + (i + 1) * 60 * 60 * 1000);
+    items.forEach(function (it) {
+      // หาสล็อตว่างถัดไปที่ยังไม่มีใครจองไว้ในคิว
+      var at = null;
+      while (si < slots.length) {
+        var cand = slots[si++];
+        if (!occupied[cand]) { at = cand; occupied[at] = true; break; }
+      }
+      if (!at) at = now + (plan.length + 1) * 60 * 60 * 1000;
       queue = queue.filter(function (q) { return q.row !== it.row; });
       queue.push({ row: it.row, slug: it.slug, name: it.name, at: at });
       setStatus_(sheet, it.row, STATUS.SCHEDULED, 'จะโพสต์ ' + slotLabel_(cfg, at));
