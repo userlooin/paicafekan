@@ -1,5 +1,28 @@
 [
   {
+    "slug": "paga-microroastery-49617",
+    "name": "PAGA Microroastery",
+    "zone": "อโศก",
+    "title": "PAGA Microroastery",
+    "excerpt": "PAGA Microroastery ที่อโศก เสนอกาแฟคั่วสดบรรยากาศสบาย เหมาะกับการทำงานหรือพักผ่อนสั้น ๆ",
+    "date": "2026-11-05",
+    "photo": "assets/img/posts/paga-microroastery-49617-1.webp",
+    "photos": [
+      "assets/img/posts/paga-microroastery-49617-1.webp",
+      "assets/img/posts/paga-microroastery-49617-2.webp",
+      "assets/img/posts/paga-microroastery-49617-3.webp",
+      "assets/img/posts/paga-microroastery-49617-4.webp",
+      "assets/img/posts/paga-microroastery-49617-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่อโศก",
+      "#PAGAMicroroastery",
+      "#กรุงเทพคาเฟ่",
+      "#คอฟฟี่โรสตี้",
+      "#คาเฟ่บรรยากาศดีกรุงเทพ"
+    ]
+  },
+  {
     "slug": "factory-coffee-47185",
     "name": "Factory Coffee",
     "zone": "พญาไท",
