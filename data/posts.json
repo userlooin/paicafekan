@@ -1,5 +1,28 @@
 [
   {
+    "slug": "gallery-drip-coffee-12395",
+    "name": "Gallery Drip Coffee",
+    "zone": "สยาม",
+    "title": "Gallery Drip Coffee",
+    "excerpt": "รีวิวคาเฟ่ Gallery Drip Coffee ที่สยาม กรุงเทพฯ บอกทุกอย่างจากบรรยากาศศิลปะจนถึงเมนูกาแฟคุณภาพและการเดินทางสะดวก.",
+    "date": "2026-11-05",
+    "photo": "assets/img/posts/gallery-drip-coffee-12395-1.webp",
+    "photos": [
+      "assets/img/posts/gallery-drip-coffee-12395-1.webp",
+      "assets/img/posts/gallery-drip-coffee-12395-2.webp",
+      "assets/img/posts/gallery-drip-coffee-12395-3.webp",
+      "assets/img/posts/gallery-drip-coffee-12395-4.webp",
+      "assets/img/posts/gallery-drip-coffee-12395-5.webp"
+    ],
+    "tags": [
+      "#สยาม",
+      "#คาเฟ่",
+      "#กาแฟศิลปะ",
+      "#GalleryDrip",
+      "#BangkokCafe"
+    ]
+  },
+  {
     "slug": "paga-microroastery-49617",
     "name": "PAGA Microroastery",
     "zone": "อโศก",
