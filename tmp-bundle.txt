@@ -1950,32 +1950,31 @@ var Approve = {
     return { ok: okCount, total: results.length, items: results };
   },
 
-  /** ตั้งคิวโพสต์ตามเวลา (ยังไม่ขึ้นเว็บจนถึงเวลาสล็อต) — skip slot ที่มีอยู่แล้วในคิว */
+  /** ตั้งคิวโพสต์ตามเวลา (ยังไม่ขึ้นเว็บจนถึงเวลาสล็อต) — skip slot ที่ชนกับคิวเก่าในชีต (คอล G, L) */
   scheduleAll_: function (cfg, items) {
     var now = Date.now() + 2 * 60 * 1000;
-    var slots = nextSlots_(cfg, now, items.length * 4);
-    var queue = readQueue_(cfg);
-    var occupied = {};
-    queue.forEach(function (q) { occupied[q.at] = true; });
+    var slots = nextSlots_(cfg, now, items.length * 6);
     var sheet = getSheet_(cfg.sheetName);
+    var occupied = occupiedSlots_(cfg, sheet);
     var plan = [];
     var si = 0;
 
     items.forEach(function (it) {
-      // หาสล็อตว่างถัดไปที่ยังไม่มีใครจองไว้ในคิว
+      // หาสล็อตว่างถัดไปที่ยังไม่มีใครจองไว้ (ทั้งในคิวและในชีต)
       var at = null;
       while (si < slots.length) {
         var cand = slots[si++];
         if (!occupied[cand]) { at = cand; occupied[at] = true; break; }
       }
       if (!at) at = now + (plan.length + 1) * 60 * 60 * 1000;
+      var queue = readQueue_(cfg);
       queue = queue.filter(function (q) { return q.row !== it.row; });
       queue.push({ row: it.row, slug: it.slug, name: it.name, at: at });
+      writeQueue_(cfg, queue);
       setStatus_(sheet, it.row, STATUS.SCHEDULED, 'จะโพสต์ ' + slotLabel_(cfg, at));
       plan.push({ name: it.name, at: at, when: slotLabel_(cfg, at) });
     });
 
-    writeQueue_(cfg, queue);
     PropertiesService.getScriptProperties().deleteProperty('PENDING_ROWS');
     log_('OK', '-', '-', 'ตั้งคิวโพสต์: ' + plan.map(function (p) { return p.name + ' ' + p.when; }).join(' | '));
     return plan;
@@ -2045,16 +2044,45 @@ function nextSlots_(cfg, afterTs, n) {
   return out;
 }
 
-/** ป้ายเวลาที่อ่านง่าย: วันนี้ 12:00 / พรุ่งนี้ 09:00 / 5 พ.ย. 17:00 */
+/** ป้ายเวลาที่อ่านง่าย: 5 พ.ย. 12:00 / 6 พ.ย. 09:00 (แสดงวันที่จริงเสมอ) */
 function slotLabel_(cfg, ts) {
   var tz = (cfg && cfg.timezone) || 'Asia/Bangkok';
-  var now = Date.now();
-  var day = Utilities.formatDate(new Date(ts), tz, 'yyyy-MM-dd');
-  var today = Utilities.formatDate(new Date(now), tz, 'yyyy-MM-dd');
-  var tomorrow = Utilities.formatDate(new Date(now + 86400000), tz, 'yyyy-MM-dd');
-  var hm = Utilities.formatDate(new Date(ts), tz, 'HH:mm');
-  if (day === today) return 'วันนี้ ' + hm;
-  if (day === tomorrow) return 'พรุ่งนี้ ' + hm;
+  var d = new Date(ts);
+  var day = Utilities.formatDate(d, tz, 'd MMM');
+  var hm = Utilities.formatDate(d, tz, 'HH:mm');
+  var year = Utilities.formatDate(d, tz, 'yyyy');
+  var nowYear = Utilities.formatDate(new Date(), tz, 'yyyy');
+  if (year === nowYear) return day + ' ' + hm;
+  return day + ' ' + year + ' ' + hm;
+}
+
+/** ตรวจจับเวลาที่ถูกจองไว้แล้วจากคิวใน Script Properties + ข้อความในชีต (คอล G และ L) */
+function occupiedSlots_(cfg, sheet) {
+  var occupied = {};
+  var queue = readQueue_(cfg);
+  queue.forEach(function (q) { occupied[q.at] = true; });
+
+  // สแกนแถวที่สถานะ scheduled ในชีต เพื่อดึงเวลาที่เซ็ตไว้แล้ว (ป้องกันกรณีตั้งคนละรอบ)
+  var lastRow = sheet.getLastRow();
+  for (var r = 2; r <= lastRow; r++) {
+    var status = String(sheet.getRange(r, COL.STATUS).getValue() || '').trim();
+    if (status !== STATUS.SCHEDULED) continue;
+    var note = String(sheet.getRange(r, COL.NOTE).getValue() || '');
+    var batch = String(sheet.getRange(r, COL.BATCH).getValue() || '');
+    var slug = String(sheet.getRange(r, COL.SLUG).getValue() || '');
+    var timeMatch = note.match(/(\d{1,2})\s*[:：]\s*(\d{2})/) || batch.match(/(\d{1,2})\s*[:：]\s*(\d{2})/);
+    if (!timeMatch) continue;
+    var hh = parseInt(timeMatch[1], 10), mm = parseInt(timeMatch[2], 10);
+    if (hh > 23 || mm > 59) continue;
+    // สร้าง epoch ของวันนี้และพรุ่งนี้ที่เวลานั้น เพื่อกันซ้ำข้ามวัน
+    var today = new Date();
+    today.setHours(hh, mm, 0, 0);
+    var tomorrow = new Date(today.getTime() + 86400000);
+    occupied[today.getTime()] = true;
+    occupied[tomorrow.getTime()] = true;
+  }
+  return occupied;
+}
   return Utilities.formatDate(new Date(ts), tz, 'd MMM') + ' ' + hm;
 }
 
