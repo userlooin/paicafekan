@@ -1747,6 +1747,7 @@ var ADMIN_FUNCTIONS = [
   'listDeployInfo',
   'publishAllPending',
   'resendPending',
+  'republishSite',
   'dumpSheet',
   'dumpLog',
   'resetErrorToReady',
@@ -2297,12 +2298,23 @@ var Site = {
       ? Site.cards_(manifest.slice(0, 12))
       : '<div class="empty"><div style="font-size:52px">☕</div><p>กำลังเก็บข้อมูลร้านแรกอยู่ — กลับมาดูเร็ว ๆ นี้</p></div>';
 
-    // รวบรวม zone ทั้งหมดที่ไม่ซ้ำสำหรับแถบกรองด้านบน
+    // รวบรวม zone ทั้งหมดที่ไม่ซ้ำ สำหรับ dropdown กรองย่าน (ขวาของหัวข้อ "รีวิวล่าสุด")
     var zones = [];
     manifest.forEach(function(p){ var z = p.zone || 'กรุงเทพฯ'; if (zones.indexOf(z) === -1) zones.push(z); });
     zones.sort();
-    var allChip = '<button class="zone-chip active all" data-zone="all">ทั้งหมด</button>';
-    var zoneChips = zones.map(function(z){ return '<button class="zone-chip" data-zone="' + esc_(z) + '">' + esc_(z) + '</button>'; }).join('');
+    var zoneItems = ['<button type="button" class="zone-item active" data-zone="all">ทั้งหมด</button>']
+      .concat(zones.map(function(z){ return '<button type="button" class="zone-item" data-zone="' + esc_(z) + '">' + esc_(z) + '</button>'; }))
+      .join('\n        ');
+    var zoneFilter = [
+      '<div class="zone-filter" id="zoneFilter">',
+      '        <button type="button" class="zone-filter-btn" aria-haspopup="true" aria-expanded="false">',
+      '          <span class="zone-filter-label">ย่าน</span> <span class="caret">▾</span>',
+      '        </button>',
+      '        <div class="zone-menu">',
+      '        ' + zoneItems,
+      '        </div>',
+      '      </div>'
+    ].join('\n');
 
     return [
       '<!DOCTYPE html>',
@@ -2310,11 +2322,6 @@ var Site = {
       head,
       '<body>',
       Site.header_(),
-      '  <div class="zone-filter-bar">',
-      '    <div class="zone-filter-inner">',
-      '      ' + allChip + zoneChips +
-'    </div>',
-'  </div>',
       '<main>',
       '  <section class="hero wrap">',
       '    <div class="hero-grid">',
@@ -2335,7 +2342,7 @@ var Site = {
       '  <section class="wrap" id="latest">',
       '    <div class="section-head">',
       '      <div><h2>รีวิวล่าสุด</h2><p>อัปเดตทุกเช้า 07:00</p></div>',
-      '      <a class="more" href="#latest">ดูทั้งหมด →</a>',
+      '      ' + zoneFilter,
       '    </div>',
       '    <div class="post-grid">',
       cards,
@@ -2344,23 +2351,32 @@ var Site = {
       '</main>',
       '  <script>',
       '(function(){',
-      '  var chips = document.querySelectorAll(".zone-chip");',
+      '  var root = document.getElementById("zoneFilter");',
+      '  if (!root) return;',
+      '  var btn = root.querySelector(".zone-filter-btn");',
+      '  var label = root.querySelector(".zone-filter-label");',
+      '  var items = root.querySelectorAll(".zone-item");',
       '  var cards = document.querySelectorAll(".card[data-zone]");',
-      '  var urlParams = new URLSearchParams(location.search);',
-      '  var initial = urlParams.get("zone") || "all";',
-      '  function setActive(zone){',
-      '    chips.forEach(function(c){',
-      '      if (c.dataset.zone === zone) { c.classList.add("active"); c.classList.remove("all"); }',
-      '      else { c.classList.remove("active"); c.classList.add("all"); }',
-      '    });',
+      '  var params = new URLSearchParams(location.search);',
+      '  var initial = params.get("zone") || "all";',
+      '  function close(){ root.classList.remove("open"); btn.setAttribute("aria-expanded","false"); }',
+      '  function apply(zone){',
+      '    label.textContent = (zone === "all") ? "ย่าน" : zone;',
+      '    items.forEach(function(it){ it.classList.toggle("active", it.dataset.zone === zone); });',
       '    cards.forEach(function(card){',
-      '      if (zone === "all" || card.dataset.zone === zone) { card.style.display = ""; }',
-      '      else { card.style.display = "none"; }',
+      '      card.style.display = (zone === "all" || card.dataset.zone === zone) ? "" : "none";',
       '    });',
+      '    close();',
       '    history.replaceState(null, "", zone === "all" ? location.pathname : location.pathname + "?zone=" + encodeURIComponent(zone));',
       '  }',
-      '  chips.forEach(function(c){ c.addEventListener("click", function(){ setActive(this.dataset.zone); }); });',
-      '  setActive(initial);',
+      '  btn.addEventListener("click", function(e){',
+      '    e.stopPropagation();',
+      '    var open = root.classList.toggle("open");',
+      '    btn.setAttribute("aria-expanded", open ? "true" : "false");',
+      '  });',
+      '  items.forEach(function(it){ it.addEventListener("click", function(e){ e.stopPropagation(); apply(this.dataset.zone); }); });',
+      '  document.addEventListener("click", close);',
+      '  apply(initial);',
       '})();',
       '  </script>',
       Site.footer_(),
@@ -2681,6 +2697,21 @@ var Publish = {
     return { published: out, failed: failed, out: out };
   },
 
+  /** สร้างหน้าเว็บใหม่ทั้งหมด (index/sitemap/feed) จาก posts.json แล้ว commit — ใช้เมื่อแก้ดีไซน์ */
+  republishSite_: function (cfg) {
+    if (!cfg.ghToken) throw new Error('ยังไม่ได้ตั้งค่า GITHUB_TOKEN');
+    var manifest = Publish.loadManifest_(cfg);
+    if (!manifest.length) return { ok: false, reason: 'ยังไม่มีโพสต์ใน data/posts.json' };
+    var files = [
+      { path: 'data/posts.json', content: JSON.stringify(manifest, null, 2), encoding: 'utf-8' },
+      { path: 'index.html', content: Site.renderIndex_(manifest, cfg), encoding: 'utf-8' },
+      { path: 'sitemap.xml', content: Site.renderSitemap_(manifest, cfg), encoding: 'utf-8' },
+      { path: 'feed.xml', content: Site.renderFeed_(manifest, cfg), encoding: 'utf-8' }
+    ];
+    var sha = GitHub.commit_(cfg, 'site: rebuild index (' + manifest.length + ' posts)', files);
+    return { ok: true, posts: manifest.length, commit: sha };
+  },
+
   /** อ่าน manifest จาก repo (ถ้ายังไม่มี = array ว่าง) */
   loadManifest_: function (cfg) {
     var file = GitHub.getFile_(cfg, 'data/posts.json');
@@ -2767,9 +2798,16 @@ var GitHub = {
   }
 };
 
-/** เมนู: ทดสอบอ่าน repo */
-function testGitHub() {
+/** สร้างหน้าเว็บใหม่จาก posts.json (เรียกผ่าน URL: run=republishSite) */
+function republishSite() {
   var cfg = getConfig_();
+  var r = Publish.republishSite_(cfg);
+  log_('INFO', 'SITE', '-', 'republishSite: ' + JSON.stringify(r));
+  return r;
+}
+
+/** เมนู: ทดสอบอ่าน repo */
+function testGitHub() {  var cfg = getConfig_();
   var lines = [];
   try {
     var root = GitHub.api_(cfg, 'get', GitHub.repoPath_(cfg));
