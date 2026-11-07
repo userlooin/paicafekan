@@ -29,10 +29,6 @@
     </nav>
   </div>
 </header>
-  <div class="zone-filter-bar">
-    <div class="zone-filter-inner">
-      <button class="zone-chip active all" data-zone="all">ทั้งหมด</button><button class="zone-chip" data-zone="ทองหล่อ">ทองหล่อ</button><button class="zone-chip" data-zone="บางรัก">บางรัก</button><button class="zone-chip" data-zone="พญาไท">พญาไท</button><button class="zone-chip" data-zone="พระนคร">พระนคร</button><button class="zone-chip" data-zone="พระโขนง">พระโขนง</button><button class="zone-chip" data-zone="สยาม">สยาม</button><button class="zone-chip" data-zone="อารีย์">อารีย์</button><button class="zone-chip" data-zone="อโศก">อโศก</button><button class="zone-chip" data-zone="เอกมัย">เอกมัย</button>    </div>
-  </div>
 <main>
   <section class="hero wrap">
     <div class="hero-grid">
@@ -53,7 +49,23 @@
   <section class="wrap" id="latest">
     <div class="section-head">
       <div><h2>รีวิวล่าสุด</h2><p>อัปเดตทุกเช้า 07:00</p></div>
-      <a class="more" href="#latest">ดูทั้งหมด →</a>
+      <div class="zone-filter" id="zoneFilter">
+        <button type="button" class="zone-filter-btn" aria-haspopup="true" aria-expanded="false">
+          <span class="zone-filter-label">ย่าน</span> <span class="caret">▾</span>
+        </button>
+        <div class="zone-menu">
+        <button type="button" class="zone-item active" data-zone="all">ทั้งหมด</button>
+        <button type="button" class="zone-item" data-zone="เอกมัย">เอกมัย</button>
+        <button type="button" class="zone-item" data-zone="ทองหล่อ">ทองหล่อ</button>
+        <button type="button" class="zone-item" data-zone="บางรัก">บางรัก</button>
+        <button type="button" class="zone-item" data-zone="พญาไท">พญาไท</button>
+        <button type="button" class="zone-item" data-zone="พระโขนง">พระโขนง</button>
+        <button type="button" class="zone-item" data-zone="พระนคร">พระนคร</button>
+        <button type="button" class="zone-item" data-zone="สยาม">สยาม</button>
+        <button type="button" class="zone-item" data-zone="อโศก">อโศก</button>
+        <button type="button" class="zone-item" data-zone="อารีย์">อารีย์</button>
+        </div>
+      </div>
     </div>
     <div class="post-grid">
       <article class="card" data-zone="สยาม">
@@ -147,25 +159,34 @@
     </div>
   </section>
 </main>
-  <script>
+    <script>
 (function(){
-  var chips = document.querySelectorAll(".zone-chip");
+  var root = document.getElementById("zoneFilter");
+  if (!root) return;
+  var btn = root.querySelector(".zone-filter-btn");
+  var label = root.querySelector(".zone-filter-label");
+  var items = root.querySelectorAll(".zone-item");
   var cards = document.querySelectorAll(".card[data-zone]");
-  var urlParams = new URLSearchParams(location.search);
-  var initial = urlParams.get("zone") || "all";
-  function setActive(zone){
-    chips.forEach(function(c){
-      if (c.dataset.zone === zone) { c.classList.add("active"); c.classList.remove("all"); }
-      else { c.classList.remove("active"); c.classList.add("all"); }
-    });
+  var params = new URLSearchParams(location.search);
+  var initial = params.get("zone") || "all";
+  function close(){ root.classList.remove("open"); btn.setAttribute("aria-expanded","false"); }
+  function apply(zone){
+    label.textContent = (zone === "all") ? "ย่าน" : zone;
+    items.forEach(function(it){ it.classList.toggle("active", it.dataset.zone === zone); });
     cards.forEach(function(card){
-      if (zone === "all" || card.dataset.zone === zone) { card.style.display = ""; }
-      else { card.style.display = "none"; }
+      card.style.display = (zone === "all" || card.dataset.zone === zone) ? "" : "none";
     });
+    close();
     history.replaceState(null, "", zone === "all" ? location.pathname : location.pathname + "?zone=" + encodeURIComponent(zone));
   }
-  chips.forEach(function(c){ c.addEventListener("click", function(){ setActive(this.dataset.zone); }); });
-  setActive(initial);
+  btn.addEventListener("click", function(e){
+    e.stopPropagation();
+    var open = root.classList.toggle("open");
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  items.forEach(function(it){ it.addEventListener("click", function(e){ e.stopPropagation(); apply(this.dataset.zone); }); });
+  document.addEventListener("click", close);
+  apply(initial);
 })();
   </script>
 <footer class="site-footer">
