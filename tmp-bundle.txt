@@ -2298,30 +2298,17 @@ var Site = {
       ? Site.cards_(manifest.slice(0, 12))
       : '<div class="empty"><div style="font-size:52px">☕</div><p>กำลังเก็บข้อมูลร้านแรกอยู่ — กลับมาดูเร็ว ๆ นี้</p></div>';
 
-    // รวบรวม zone ทั้งหมดที่ไม่ซ้ำ สำหรับ dropdown กรองย่าน (ขวาของหัวข้อ "รีวิวล่าสุด")
+    // รวบรวม zone ทั้งหมดที่ไม่ซ้ำ สำหรับ dropdown "ย่าน" บนแถบเมนูด้านบน
     var zones = [];
     manifest.forEach(function(p){ var z = p.zone || 'กรุงเทพฯ'; if (zones.indexOf(z) === -1) zones.push(z); });
     zones.sort();
-    var zoneItems = ['<button type="button" class="zone-item active" data-zone="all">ทั้งหมด</button>']
-      .concat(zones.map(function(z){ return '<button type="button" class="zone-item" data-zone="' + esc_(z) + '">' + esc_(z) + '</button>'; }))
-      .join('\n        ');
-    var zoneFilter = [
-      '<div class="zone-filter" id="zoneFilter">',
-      '        <button type="button" class="zone-filter-btn" aria-haspopup="true" aria-expanded="false">',
-      '          <span class="zone-filter-label">ย่าน</span> <span class="caret">▾</span>',
-      '        </button>',
-      '        <div class="zone-menu">',
-      '        ' + zoneItems,
-      '        </div>',
-      '      </div>'
-    ].join('\n');
 
     return [
       '<!DOCTYPE html>',
       '<html lang="th">',
       head,
       '<body>',
-      Site.header_(),
+      Site.header_(zones),
       '<main>',
       '  <section class="hero wrap">',
       '    <div class="hero-grid">',
@@ -2342,7 +2329,7 @@ var Site = {
       '  <section class="wrap" id="latest">',
       '    <div class="section-head">',
       '      <div><h2>รีวิวล่าสุด</h2><p>อัปเดตทุกเช้า 07:00</p></div>',
-      '      ' + zoneFilter,
+      '      <a class="more" href="#latest">ดูทั้งหมด →</a>',
       '    </div>',
       '    <div class="post-grid">',
       cards,
@@ -2438,20 +2425,41 @@ var Site = {
     ].filter(Boolean).join('\n');
   },
 
-  header_: function () {
+  /** เมนู "ย่าน" แบบ dropdown (แสดงเฉพาะหน้าแรกที่มีรายการโซน) */
+  zoneFilter_: function (zones) {
+    var items = ['<button type="button" class="zone-item active" data-zone="all">ทั้งหมด</button>']
+      .concat(zones.map(function (z) {
+        return '<button type="button" class="zone-item" data-zone="' + esc_(z) + '">' + esc_(z) + '</button>';
+      }))
+      .join('\n            ');
+    return [
+      '      <div class="zone-filter" id="zoneFilter">',
+      '        <button type="button" class="zone-filter-btn" aria-haspopup="true" aria-expanded="false">',
+      '          <span class="zone-filter-label">ย่าน</span><span class="caret">▾</span>',
+      '        </button>',
+      '        <div class="zone-menu">',
+      '            ' + items,
+      '        </div>',
+      '      </div>'
+    ].join('\n');
+  },
+
+  header_: function (zones) {
+    var zoneNav = (zones && zones.length) ? Site.zoneFilter_(zones) : '';
     return [
       '<header class="site-header">',
       '  <div class="header-inner">',
       '    <a class="brand" href="/"><span class="brand-mark">☕</span><span>ไปคาเฟ่กัน<small>paicafekan.com</small></span></a>',
       '    <nav class="nav">',
       '      <a href="/">หน้าแรก</a>',
+      zoneNav,
       '      <a href="/#latest">รีวิวล่าสุด</a>',
       '      <a href="/about/">เกี่ยวกับ</a>',
       '      <a class="cta" href="/#latest">ไปดูร้าน</a>',
       '    </nav>',
       '  </div>',
       '</header>'
-    ].join('\n');
+    ].filter(Boolean).join('\n');
   },
 
   footer_: function () {
