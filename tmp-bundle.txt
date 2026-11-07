@@ -1168,7 +1168,7 @@ function askGeminiCore_(prompt, cfg) {
   };
 
   var lastError = '';
-  for (var attempt = 1; attempt <= 4; attempt++) {
+  for (var attempt = 1; attempt <= 1; attempt++) {
     var res = UrlFetchApp.fetch(url, options);
     var code = res.getResponseCode();
     var text = res.getContentText();
@@ -1176,9 +1176,6 @@ function askGeminiCore_(prompt, cfg) {
     if (code === 200) {
       return parseGeminiResponse_(text);
     }
-
-    // 429 = โควตา/จำกัด — retry นิดเดียวพอ อย่าเผาโควตาต่อ
-    if (code === 429 && attempt >= 2) break;
 
     lastError = 'Gemini HTTP ' + code + ': ' + text.slice(0, 500);
 
@@ -2300,12 +2297,24 @@ var Site = {
       ? Site.cards_(manifest.slice(0, 12))
       : '<div class="empty"><div style="font-size:52px">☕</div><p>กำลังเก็บข้อมูลร้านแรกอยู่ — กลับมาดูเร็ว ๆ นี้</p></div>';
 
+    // รวบรวม zone ทั้งหมดที่ไม่ซ้ำสำหรับแถบกรองด้านบน
+    var zones = [];
+    manifest.forEach(function(p){ var z = p.zone || 'กรุงเทพฯ'; if (zones.indexOf(z) === -1) zones.push(z); });
+    zones.sort();
+    var allChip = '<button class="zone-chip active all" data-zone="all">ทั้งหมด</button>';
+    var zoneChips = zones.map(function(z){ return '<button class="zone-chip" data-zone="' + esc_(z) + '">' + esc_(z) + '</button>'; }).join('');
+
     return [
       '<!DOCTYPE html>',
       '<html lang="th">',
       head,
       '<body>',
       Site.header_(),
+      '  <div class="zone-filter-bar">',
+      '    <div class="zone-filter-inner">',
+      '      ' + allChip + zoneChips +
+'    </div>',
+'  </div>',
       '<main>',
       '  <section class="hero wrap">',
       '    <div class="hero-grid">',
@@ -2333,6 +2342,27 @@ var Site = {
       '    </div>',
       '  </section>',
       '</main>',
+      '  <script>',
+      '(function(){',
+      '  var chips = document.querySelectorAll(".zone-chip");',
+      '  var cards = document.querySelectorAll(".card[data-zone]");',
+      '  var urlParams = new URLSearchParams(location.search);',
+      '  var initial = urlParams.get("zone") || "all";',
+      '  function setActive(zone){',
+      '    chips.forEach(function(c){',
+      '      if (c.dataset.zone === zone) { c.classList.add("active"); c.classList.remove("all"); }',
+      '      else { c.classList.remove("active"); c.classList.add("all"); }',
+      '    });',
+      '    cards.forEach(function(card){',
+      '      if (zone === "all" || card.dataset.zone === zone) { card.style.display = ""; }',
+      '      else { card.style.display = "none"; }',
+      '    });',
+      '    history.replaceState(null, "", zone === "all" ? location.pathname : location.pathname + "?zone=" + encodeURIComponent(zone));',
+      '  }',
+      '  chips.forEach(function(c){ c.addEventListener("click", function(){ setActive(this.dataset.zone); }); });',
+      '  setActive(initial);',
+      '})();',
+      '  </script>',
       Site.footer_(),
       '</body>',
       '</html>'
@@ -2346,7 +2376,7 @@ var Site = {
         ? '<img src="/' + esc_(p.photo) + '" alt="' + esc_(p.name) + '" loading="lazy" width="640" height="440">'
         : '<span class="card-auto"><strong>' + esc_(p.name) + '</strong></span>';
       return [
-        '      <article class="card">',
+        '      <article class="card" data-zone="' + esc_(p.zone || 'กรุงเทพฯ') + '">',
         '        <a class="card-photo' + (p.photo ? '' : ' cover-auto') + '" href="' + href + '"><span class="zone">' + esc_(p.zone || 'กรุงเทพฯ') + '</span>' + img + '</a>',
         '        <div class="card-body">',
         '          <h3><a href="' + href + '">' + esc_(p.title) + '</a></h3>',
