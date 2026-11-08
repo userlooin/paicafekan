@@ -1748,6 +1748,7 @@ var ADMIN_FUNCTIONS = [
   'publishAllPending',
   'resendPending',
   'republishSite',
+  'testRenderPost',
   'dumpSheet',
   'dumpLog',
   'resetErrorToReady',
@@ -2838,6 +2839,26 @@ function republishSite() {
   var r = Publish.republishSite_(cfg);
   log_('INFO', 'SITE', '-', 'republishSite: ' + JSON.stringify(r));
   return r;
+}
+
+/** ตรวจว่ารูปแทรกกลางเนื้อหาทำงานไหม (เรียกผ่าน URL: run=testRenderPost) */
+function testRenderPost() {
+  var body = [];
+  for (var i = 1; i <= 8; i++) body.push('ย่อหน้าที่ ' + i + ' เล่าเรื่องบรรยากาศของร้านและเมนูที่ควรลอง');
+  var item = {
+    name: 'ร้านทดสอบ', zone: 'สยาม', slug: 'test-render', title: 'ทดสอบการแทรกรูป',
+    date: '2026-11-08', body: body.join('\n\n'), photos: ['a-1.webp', 'a-2.webp', 'a-3.webp', 'a-4.webp'],
+    photoPaths: ['a-1.webp', 'a-2.webp', 'a-3.webp', 'a-4.webp'], tags: ['#ทดสอบ'],
+    excerpt: 'ทดสอบ', address: '-', hours: '-', mapsUrl: '#'
+  };
+  var html = Site.renderPost_(item, []);
+  return {
+    ok: true,
+    len: html.length,
+    inlinePhotos: (html.match(/class="article-photo"/g) || []).length,
+    galleryPhotos: (html.match(/<figure><img/g) || []).length,
+    hasMdWrapper: typeof Site.md_ === 'function'
+  };
 }
 
 /** เมนู: ทดสอบอ่าน repo */
