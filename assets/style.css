@@ -491,6 +491,22 @@ img { max-width: 100%; display: block; }
   transition: none;
 }
 
+/* ---------- รูปแทรกกลางเนื้อหา (ย่อหน้า -> รูป -> ย่อหน้า) ---------- */
+.article-photo {
+  margin: 30px 0;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--bg-soft);
+  box-shadow: var(--shadow);
+}
+.article-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.45s ease;
+}
+.article-photo:hover img { transform: scale(1.035); }
+
 /* ---------- photo gallery (หลายรูปจากคอลัมน์ M) ---------- */
 .photo-grid {
   display: grid;
