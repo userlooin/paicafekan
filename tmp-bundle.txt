@@ -1744,6 +1744,8 @@ var ADMIN_FUNCTIONS = [
   'lineFollowers',
   'setupHeaders',
   'setupTriggers',
+  'setupWeeklyTrigger',
+  'seedWeeklyShops',
   'listDeployInfo',
   'publishAllPending',
   'resendPending',
@@ -2891,7 +2893,7 @@ var PEAK_TIMES = [
 
 var TIMEZONE = 'Asia/Bangkok';
 
-/** ติดตั้ง trigger 1 รอบ/วัน 06:50 + ตัวตรวจคิวโพสต์ทุก 5 นาที */
+/** ติดตั้ง trigger 1 รอบ/วัน 06:50 + ตัวตรวจคิวโพสต์ทุก 5 นาที + รายชื่อร้านวันอาทิตย์ 07:00 */
 function setupTriggers() {
   removeTriggers();
   PEAK_TIMES.forEach(function (t) {
@@ -2907,7 +2909,25 @@ function setupTriggers() {
     .timeBased()
     .everyMinutes(5)
     .create();
-  log_('INFO', '-', '-', 'ติดตั้ง trigger เรียบร้อย: สร้างร่าง 06:50 + ตรวจคิวโพสต์ทุก 5 นาที');
+  setupWeeklyTrigger();
+  log_('INFO', '-', '-', 'ติดตั้ง trigger เรียบร้อย: สร้างร่าง 06:50 + ตรวจคิวโพสต์ทุก 5 นาที + รายชื่อร้านวันอาทิตย์ 07:00');
+  return listTriggers_();
+}
+
+/** ติดตั้ง/รีเซ็ต trigger รายชื่อร้านประจำสัปดาห์ (วันอาทิตย์ 07:00) */
+function setupWeeklyTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(function (tr) {
+    if (tr.getHandlerFunction() === 'seedWeeklyShops') ScriptApp.deleteTrigger(tr);
+  });
+  ScriptApp.newTrigger('seedWeeklyShops')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.SUNDAY)
+    .atHour(7)
+    .nearMinute(0)
+    .inTimezone(TIMEZONE)
+    .create();
+  log_('INFO', '-', '-', 'ติดตั้ง trigger รายชื่อร้านวันอาทิตย์ 07:00 เรียบร้อย');
   return listTriggers_();
 }
 
@@ -2917,12 +2937,190 @@ function removeTriggers() {
   var removed = 0;
   triggers.forEach(function (tr) {
     var fn = tr.getHandlerFunction();
-    if (fn === 'runNow' || fn === 'runDailyBatch' || fn === 'runPublishQueue') {
+    if (fn === 'runNow' || fn === 'runDailyBatch' || fn === 'runPublishQueue' || fn === 'seedWeeklyShops') {
       ScriptApp.deleteTrigger(tr);
       removed++;
     }
   });
   return removed;
+}
+
+/* ---------------- รายชื่อร้านประจำสัปดาห์ (ทุกวันอาทิตย์ 07:00) ---------------- */
+
+/** จุดกลางย่าน ใช้เดาย่านจากพิกัดร้านใน OSM */
+var ZONE_CENTERS = [
+  { zone: 'สยาม', lat: 13.7466, lon: 100.5347 },
+  { zone: 'อารีย์', lat: 13.7799, lon: 100.5447 },
+  { zone: 'ทองหล่อ', lat: 13.7323, lon: 100.5822 },
+  { zone: 'เอกมัย', lat: 13.7240, lon: 100.5845 },
+  { zone: 'อโศก', lat: 13.7370, lon: 100.5600 },
+  { zone: 'พระโขนง', lat: 13.7100, lon: 100.5900 },
+  { zone: 'พระนคร', lat: 13.7550, lon: 100.5000 },
+  { zone: 'บางรัก', lat: 13.7280, lon: 100.5140 },
+  { zone: 'พญาไท', lat: 13.7565, lon: 100.5385 },
+  { zone: 'จตุจักร', lat: 13.8000, lon: 100.5500 },
+  { zone: 'บางนา', lat: 13.6700, lon: 100.6000 },
+  { zone: 'รัชดา', lat: 13.7700, lon: 100.5700 }
+];
+
+/** ชื่อร้านเครือ/แมส มาร์เก็ต — ห้ามเข้ารายการ */
+var CHAIN_WORDS = [
+  'amazon', 'อเมซอน', 'chao doi', 'ชาวดอย', 'black canyon', 'flash coffee',
+  'after you', 'true coffee', 'arabica', 'starbucks', 'mccafe', 'dunkin',
+  'krispy kreme', 'tim horton', 'inthanin', 'อินทนิล', 'cha tra mue', 'ชาตรามือ',
+  'open house', 'cafe nero', 'blue bottle', 'costa coffee', 'pacific coffee'
+];
+
+/** แปลงชื่อให้เทียบกันได้ (ตัดช่องว่าง/ตัวพิมพ์) */
+function normShopName_(s) {
+  return String(s || '').toLowerCase().replace(/\s+/g, '').replace(/[.,'’`"()\[\]-]/g, '');
+}
+
+/** ระยะทางโดยประมาณ (กม.) */
+function distKm_(lat1, lon1, lat2, lon2) {
+  var R = 6371;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** เลือกย่านที่ใกล้ที่สุด (ไม่เกิน 4.5 กม.) */
+function nearestZone_(lat, lon) {
+  var best = null;
+  ZONE_CENTERS.forEach(function (z) {
+    var d = distKm_(lat, lon, z.lat, z.lon);
+    if (!best || d < best.d) best = { zone: z.zone, d: d };
+  });
+  return (best && best.d <= 4.5) ? best.zone : '';
+}
+
+/** ดึงรายชื่อคาเฟ่ในกรุงเทพฯ จาก OSM (Overpass) */
+function fetchOsmCafes_() {
+  var q = '[out:json][timeout:60];node["amenity"="cafe"]["name"](13.65,100.42,13.90,100.63);out tags center 6000;';
+  var hosts = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  var lastErr = '';
+  for (var i = 0; i < hosts.length; i++) {
+    try {
+      var res = UrlFetchApp.fetch(hosts[i], {
+        method: 'post',
+        payload: { data: q },
+        muteHttpExceptions: true,
+        followRedirects: true
+      });
+      var code = res.getResponseCode();
+      var txt = res.getContentText();
+      if (code !== 200) { lastErr = hosts[i] + ' -> ' + code; continue; }
+      var json = JSON.parse(txt);
+      return (json && json.elements) ? json.elements : [];
+    } catch (err) {
+      lastErr = hosts[i] + ' -> ' + String(err && err.message ? err.message : err);
+    }
+  }
+  throw new Error('ดึงข้อมูล OSM ไม่ได้: ' + lastErr);
+}
+
+/**
+ * ADMIN + trigger: เติมรายชื่อร้าน 21 ร้าน พร้อมย่าน ลงชีททุกวันอาทิตย์ 07:00
+ * สถานะเว้นว่างไว้ — ผู้ใช้ใส่รูปในคอลัมน์ M แล้วตั้ง ready เอง
+ */
+function seedWeeklyShops(limit) {
+  limit = limit || 21;
+  var cfg = getConfig_();
+  var sheet = getSheet_(cfg.sheetName);
+  var props = PropertiesService.getScriptProperties();
+
+  // ชื่อที่มีอยู่แล้ว (ทุกสถานะ) + ประวัติที่เคยแนะนำ
+  var existing = {};
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var names = sheet.getRange(2, COL.NAME, lastRow - 1, 1).getValues();
+    names.forEach(function (r) { var k = normShopName_(r[0]); if (k) existing[k] = true; });
+  }
+  var seeded = [];
+  try { seeded = JSON.parse(props.getProperty('SEEDED_SHOPS') || '[]'); } catch (e) { seeded = []; }
+  seeded.forEach(function (n) { existing[normShopName_(n)] = true; });
+
+  var els = fetchOsmCafes_();
+  var cands = [];
+  els.forEach(function (el) {
+    var t = el.tags || {};
+    var name = String(t.name || '').trim();
+    if (!name || name.length < 2) return;
+    var low = name.toLowerCase();
+    var chain = CHAIN_WORDS.some(function (w) { return low.indexOf(String(w).toLowerCase()) !== -1; });
+    if (chain) return;
+    var k = normShopName_(name);
+    if (existing[k]) return;
+    var lat = el.lat || (el.center && el.center.lat);
+    var lon = el.lon || (el.center && el.center.lon);
+    if (!lat || !lon) return;
+    var zone = nearestZone_(lat, lon);
+    if (!zone) return;
+    // คะแนนความน่าเชื่อถือของข้อมูล (มีเวลาเปิด/ที่อยู่/เว็บ = มีตัวตนจริง)
+    var score = 0;
+    if (t.opening_hours) score += 3;
+    if (t['addr:street'] || t['addr:subdistrict']) score += 2;
+    if (t.website || t['contact:website']) score += 2;
+    if (t.phone || t['contact:phone']) score += 1;
+    cands.push({ name: name, zone: zone, score: score });
+  });
+
+  // กันชื่อซ้ำภายในชุดเดียวกัน
+  var seen = {};
+  cands = cands.filter(function (c) {
+    var k = normShopName_(c.name);
+    if (seen[k]) return false;
+    seen[k] = true;
+    return true;
+  });
+
+  // กระจายให้ครบทุกย่าน: เรียงตามคะแนน แล้ววนย่านละร้าน
+  var byZone = {};
+  cands.forEach(function (c) {
+    (byZone[c.zone] = byZone[c.zone] || []).push(c);
+  });
+  var zoneKeys = Object.keys(byZone);
+  zoneKeys.forEach(function (z) {
+    byZone[z].sort(function (a, b) { return b.score - a.score || a.name.localeCompare(b.name); });
+  });
+
+  var picks = [];
+  var guard = 0;
+  while (picks.length < limit && guard < 500) {
+    guard++;
+    var added = false;
+    for (var i = 0; i < zoneKeys.length && picks.length < limit; i++) {
+      var arr = byZone[zoneKeys[i]];
+      if (arr.length) { picks.push(arr.shift()); added = true; }
+    }
+    if (!added) break;
+  }
+
+  if (!picks.length) {
+    log_('WARN', '-', '-', 'weekly seed: ไม่พบร้านใหม่จาก OSM');
+    return { added: 0, reason: 'ไม่พบร้านใหม่จาก OSM' };
+  }
+
+  var rows = picks.map(function (p) {
+    return [p.name, p.zone, '', '', '', '',
+      '🌱 รายชื่อร้านประจำสัปดาห์ — ใส่รูปในคอลัมน์ M แล้วตั้งสถานะ ready'];
+  });
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
+
+  // จำชื่อที่เคยแนะนำไว้ กันซ้ำข้ามสัปดาห์
+  var keep = seeded.concat(picks.map(function (p) { return p.name; })).slice(-600);
+  props.setProperty('SEEDED_SHOPS', JSON.stringify(keep));
+
+  var summary = picks.map(function (p) { return p.name + ' (' + p.zone + ')'; }).join('\n');
+  log_('INFO', '-', '-', 'weekly seed: +' + picks.length + ' ร้าน');
+  try {
+    Line.push_([Line.text('🌱 รายชื่อร้านประจำสัปดาห์ +' + picks.length + ' ร้าน ลงชีทแล้ว\nใส่รูปในคอลัมน์ M แล้วตั้งสถานะ ready ได้เลย\n\n' + summary.slice(0, 900))]);
+  } catch (e) {}
+
+  return { added: picks.length, shops: picks };
 }
 
 /** ADMIN: ลบแถวร้านในรายชื่อห้าม (mass/chain) — เฉพาะแถว ≥ 15 เช่น "คาเฟ่ อเมซอน" */
