@@ -2216,10 +2216,31 @@ var Site = {
       ? '<figure class="article-cover"><img src="' + esc_(photo) + '" alt="' + esc_(item.name) + '" loading="eager" width="1200" height="675"></figure>'
       : '<figure class="article-cover cover-auto">' + Site.coverAuto_(item) + '</figure>';
 
-    var gallery = photoPaths.length > 1 ? [
+    // แทรกรูปแทรกในเนื้อหา (ย่อหน้า -> รูป -> ย่อหน้า) เพื่อให้อ่านลื่นเหมือนนิตยสาร
+    var blocks = Site.mdBlocks_(item.body);
+    var inlinePhotos = photoPaths.slice(1);
+    var paraIdx = [];
+    blocks.forEach(function (b, i) { if (b.type === 'p') paraIdx.push(i); });
+    var slots = Math.min(inlinePhotos.length, Math.max(0, paraIdx.length - 1));
+    var insertAfter = {};
+    for (var k = 0; k < slots; k++) {
+      var pos = Math.round((k + 1) * paraIdx.length / (slots + 1)) - 1;
+      if (pos < 0) pos = 0;
+      if (pos > paraIdx.length - 1) pos = paraIdx.length - 1;
+      insertAfter[paraIdx[pos]] = '<figure class="article-photo"><img src="/' + esc_(inlinePhotos[k]) +
+        '" alt="' + esc_(item.name) + ' ภาพที่ ' + (k + 2) + '" loading="lazy" width="1000" height="667"></figure>';
+    }
+    var bodyHtml = blocks.map(function (b, i) {
+      var s = '    ' + b.html;
+      if (insertAfter[i]) s += '\n    ' + insertAfter[i];
+      return s;
+    }).join('\n');
+
+    var restPhotos = inlinePhotos.slice(slots);
+    var gallery = restPhotos.length ? [
       '<div class="photo-grid">',
-      photoPaths.slice(1).map(function (p, i) {
-        return '  <figure><img src="/' + esc_(p) + '" alt="' + esc_(item.name) + ' ภาพที่ ' + (i + 2) + '" loading="lazy" width="640" height="440"></figure>';
+      restPhotos.map(function (p, i) {
+        return '  <figure><img src="/' + esc_(p) + '" alt="' + esc_(item.name) + ' ภาพที่ ' + (slots + i + 2) + '" loading="lazy" width="640" height="440"></figure>';
       }).join('\n'),
       '</div>'
     ].join('\n') : '';
@@ -2268,7 +2289,7 @@ var Site = {
       '  ' + cover,
       '  ' + credit,
       '  <article class="article-body">',
-      Site.md_(item.body),
+      bodyHtml,
       '  </article>',
       '  ' + gallery,
       '  <aside class="info-box"><h3>ข้อมูลร้าน</h3>',
@@ -2473,8 +2494,8 @@ var Site = {
     ].join('\n');
   },
 
-  /** Markdown แบบง่าย -> HTML */
-  md_: function (md) {
+  /** Markdown แบบง่าย -> กลุ่มบล็อก HTML (ใช้แทรกรูปกลางเนื้อหา) */
+  mdBlocks_: function (md) {
     var lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
     var out = [];
     var list = null;
@@ -2482,15 +2503,15 @@ var Site = {
 
     function flushPara() {
       if (para.length) {
-        out.push('    <p>' + inlineMd_(para.join(' ')) + '</p>');
+        out.push({ type: 'p', html: '<p>' + inlineMd_(para.join(' ')) + '</p>' });
         para = [];
       }
     }
     function flushList() {
       if (list) {
-        out.push('    <' + list.type + '>' + list.items.map(function (s) {
+        out.push({ type: list.type, html: '<' + list.type + '>' + list.items.map(function (s) {
           return '<li>' + inlineMd_(s) + '</li>';
-        }).join('') + '</' + list.type + '>');
+        }).join('') + '</' + list.type + '>' });
         list = null;
       }
     }
@@ -2500,13 +2521,13 @@ var Site = {
       var line = raw.replace(/\s+$/, '');
       if (!line.trim()) { flushPara(); flushList(); continue; }
 
-      if (/^\s*---+\s*$/.test(line)) { flushPara(); flushList(); out.push('    <hr>'); continue; }
+      if (/^\s*---+\s*$/.test(line)) { flushPara(); flushList(); out.push({ type: 'hr', html: '<hr>' }); continue; }
 
       var h = line.match(/^(#{2,4})\s+(.*)$/);
       if (h) {
         flushPara(); flushList();
         var lvl = h[1].length;
-        out.push('    <h' + lvl + '>' + inlineMd_(h[2]) + '</h' + lvl + '>');
+        out.push({ type: 'h' + lvl, html: '<h' + lvl + '>' + inlineMd_(h[2]) + '</h' + lvl + '>' });
         continue;
       }
 
@@ -2529,14 +2550,19 @@ var Site = {
       var q = line.match(/^>\s?(.*)$/);
       if (q) {
         flushPara(); flushList();
-        out.push('    <blockquote>' + inlineMd_(q[1]) + '</blockquote>');
+        out.push({ type: 'blockquote', html: '<blockquote>' + inlineMd_(q[1]) + '</blockquote>' });
         continue;
       }
 
       para.push(line.trim());
     }
     flushPara(); flushList();
-    return out.join('\n');
+    return out;
+  },
+
+  /** Markdown แบบง่าย -> HTML (ยังใช้ได้เหมือนเดิม) */
+  md_: function (md) {
+    return Site.mdBlocks_(md).map(function (b) { return '    ' + b.html; }).join('\n');
   },
 
   renderSitemap_: function (manifest, cfg) {
