@@ -1746,6 +1746,7 @@ var ADMIN_FUNCTIONS = [
   'setupTriggers',
   'setupWeeklyTrigger',
   'seedWeeklyShops',
+  'testOsm',
   'listDeployInfo',
   'publishAllPending',
   'resendPending',
@@ -2910,11 +2911,11 @@ function setupTriggers() {
     .everyMinutes(5)
     .create();
   setupWeeklyTrigger();
-  log_('INFO', '-', '-', 'ติดตั้ง trigger เรียบร้อย: สร้างร่าง 06:50 + ตรวจคิวโพสต์ทุก 5 นาที + รายชื่อร้านวันอาทิตย์ 07:00');
+  log_('INFO', '-', '-', 'ติดตั้ง trigger เรียบร้อย: สร้างร่าง 06:50 + ตรวจคิวโพสต์ทุก 5 นาที + รายชื่อร้านวันอาทิตย์ 08:00');
   return listTriggers_();
 }
 
-/** ติดตั้ง/รีเซ็ต trigger รายชื่อร้านประจำสัปดาห์ (วันอาทิตย์ 07:00) */
+/** ติดตั้ง/รีเซ็ต trigger รายชื่อร้านประจำสัปดาห์ (วันอาทิตย์ 08:00) */
 function setupWeeklyTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(function (tr) {
@@ -2923,11 +2924,11 @@ function setupWeeklyTrigger() {
   ScriptApp.newTrigger('seedWeeklyShops')
     .timeBased()
     .onWeekDay(ScriptApp.WeekDay.SUNDAY)
-    .atHour(7)
+    .atHour(8)
     .nearMinute(0)
     .inTimezone(TIMEZONE)
     .create();
-  log_('INFO', '-', '-', 'ติดตั้ง trigger รายชื่อร้านวันอาทิตย์ 07:00 เรียบร้อย');
+  log_('INFO', '-', '-', 'ติดตั้ง trigger รายชื่อร้านวันอาทิตย์ 08:00 เรียบร้อย');
   return listTriggers_();
 }
 
@@ -2997,29 +2998,67 @@ function nearestZone_(lat, lon) {
   return (best && best.d <= 4.5) ? best.zone : '';
 }
 
-/** ดึงรายชื่อคาเฟ่ในกรุงเทพฯ จาก OSM (Overpass) */
+/** ดึงรายชื่อคาเฟ่ในกรุงเทพฯ จาก OSM (Overpass) — ลองหลาย host + แคช 6 ชม. */
+var OSM_HOSTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter'
+];
+
 function fetchOsmCafes_() {
-  var q = '[out:json][timeout:60];node["amenity"="cafe"]["name"](13.65,100.42,13.90,100.63);out tags center 6000;';
-  var hosts = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-  var lastErr = '';
-  for (var i = 0; i < hosts.length; i++) {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get('osm_cafes_v2');
+  if (hit) {
+    try { return JSON.parse(hit); } catch (e) {}
+  }
+  var q = '[out:json][timeout:45];' +
+    'node["amenity"="cafe"]["name"](13.66,100.44,13.89,100.62);' +
+    'out tags center 4000;';
+  var errors = [];
+  var started = Date.now();
+  for (var i = 0; i < OSM_HOSTS.length; i++) {
+    if (Date.now() - started > 100000) { errors.push('หมดเวลารอ overpass'); break; }
+    var host = OSM_HOSTS[i];
+    var t0 = Date.now();
     try {
-      var res = UrlFetchApp.fetch(hosts[i], {
+      var res = UrlFetchApp.fetch(host, {
         method: 'post',
         payload: { data: q },
+        contentType: 'application/x-www-form-urlencoded',
         muteHttpExceptions: true,
-        followRedirects: true
+        followRedirects: true,
+        deadline: 25
       });
       var code = res.getResponseCode();
       var txt = res.getContentText();
-      if (code !== 200) { lastErr = hosts[i] + ' -> ' + code; continue; }
+      if (code !== 200) { errors.push(host + ' -> HTTP ' + code); continue; }
       var json = JSON.parse(txt);
-      return (json && json.elements) ? json.elements : [];
+      var els = (json && json.elements) ? json.elements : [];
+      if (!els.length) { errors.push(host + ' -> 0 elements'); continue; }
+      // เก็บเฉพาะที่ใช้จริงให้แคชเล็ก
+      var slim = els.map(function (el) {
+        var t = el.tags || {};
+        return {
+          name: t.name || '',
+          zoneGuess: '',
+          lat: el.lat, lon: el.lon,
+          opening_hours: t.opening_hours || '',
+          website: t.website || t['contact:website'] || '',
+          phone: t.phone || t['contact:phone'] || '',
+          street: t['addr:street'] || '',
+          subtitle: t['addr:subdistrict'] || '',
+          closed: !!(t['disused:amenity'] || t['abandoned:amenity'] || t.end_date)
+        };
+      });
+      try { cache.put('osm_cafes_v2', JSON.stringify(slim), 21600); } catch (e) {}
+      log_('INFO', '-', '-', 'OSM: ' + slim.length + ' คาเฟ่ จาก ' + host + ' (' + (Date.now() - t0) + ' ms)');
+      return slim;
     } catch (err) {
-      lastErr = hosts[i] + ' -> ' + String(err && err.message ? err.message : err);
+      errors.push(host + ' -> ' + String(err && err.message ? err.message : err));
     }
   }
-  throw new Error('ดึงข้อมูล OSM ไม่ได้: ' + lastErr);
+  throw new Error('ดึงข้อมูล OSM ไม่ได้: ' + errors.join(' | '));
 }
 
 /**
@@ -3031,96 +3070,125 @@ function seedWeeklyShops(limit) {
   var cfg = getConfig_();
   var sheet = getSheet_(cfg.sheetName);
   var props = PropertiesService.getScriptProperties();
+  var started = Date.now();
 
-  // ชื่อที่มีอยู่แล้ว (ทุกสถานะ) + ประวัติที่เคยแนะนำ
-  var existing = {};
-  var lastRow = sheet.getLastRow();
-  if (lastRow >= 2) {
-    var names = sheet.getRange(2, COL.NAME, lastRow - 1, 1).getValues();
-    names.forEach(function (r) { var k = normShopName_(r[0]); if (k) existing[k] = true; });
-  }
-  var seeded = [];
-  try { seeded = JSON.parse(props.getProperty('SEEDED_SHOPS') || '[]'); } catch (e) { seeded = []; }
-  seeded.forEach(function (n) { existing[normShopName_(n)] = true; });
-
-  var els = fetchOsmCafes_();
-  var cands = [];
-  els.forEach(function (el) {
-    var t = el.tags || {};
-    var name = String(t.name || '').trim();
-    if (!name || name.length < 2) return;
-    var low = name.toLowerCase();
-    var chain = CHAIN_WORDS.some(function (w) { return low.indexOf(String(w).toLowerCase()) !== -1; });
-    if (chain) return;
-    var k = normShopName_(name);
-    if (existing[k]) return;
-    var lat = el.lat || (el.center && el.center.lat);
-    var lon = el.lon || (el.center && el.center.lon);
-    if (!lat || !lon) return;
-    var zone = nearestZone_(lat, lon);
-    if (!zone) return;
-    // คะแนนความน่าเชื่อถือของข้อมูล (มีเวลาเปิด/ที่อยู่/เว็บ = มีตัวตนจริง)
-    var score = 0;
-    if (t.opening_hours) score += 3;
-    if (t['addr:street'] || t['addr:subdistrict']) score += 2;
-    if (t.website || t['contact:website']) score += 2;
-    if (t.phone || t['contact:phone']) score += 1;
-    cands.push({ name: name, zone: zone, score: score });
-  });
-
-  // กันชื่อซ้ำภายในชุดเดียวกัน
-  var seen = {};
-  cands = cands.filter(function (c) {
-    var k = normShopName_(c.name);
-    if (seen[k]) return false;
-    seen[k] = true;
-    return true;
-  });
-
-  // กระจายให้ครบทุกย่าน: เรียงตามคะแนน แล้ววนย่านละร้าน
-  var byZone = {};
-  cands.forEach(function (c) {
-    (byZone[c.zone] = byZone[c.zone] || []).push(c);
-  });
-  var zoneKeys = Object.keys(byZone);
-  zoneKeys.forEach(function (z) {
-    byZone[z].sort(function (a, b) { return b.score - a.score || a.name.localeCompare(b.name); });
-  });
-
-  var picks = [];
-  var guard = 0;
-  while (picks.length < limit && guard < 500) {
-    guard++;
-    var added = false;
-    for (var i = 0; i < zoneKeys.length && picks.length < limit; i++) {
-      var arr = byZone[zoneKeys[i]];
-      if (arr.length) { picks.push(arr.shift()); added = true; }
-    }
-    if (!added) break;
-  }
-
-  if (!picks.length) {
-    log_('WARN', '-', '-', 'weekly seed: ไม่พบร้านใหม่จาก OSM');
-    return { added: 0, reason: 'ไม่พบร้านใหม่จาก OSM' };
-  }
-
-  var rows = picks.map(function (p) {
-    return [p.name, p.zone, '', '', '', '',
-      '🌱 รายชื่อร้านประจำสัปดาห์ — ใส่รูปในคอลัมน์ M แล้วตั้งสถานะ ready'];
-  });
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
-
-  // จำชื่อที่เคยแนะนำไว้ กันซ้ำข้ามสัปดาห์
-  var keep = seeded.concat(picks.map(function (p) { return p.name; })).slice(-600);
-  props.setProperty('SEEDED_SHOPS', JSON.stringify(keep));
-
-  var summary = picks.map(function (p) { return p.name + ' (' + p.zone + ')'; }).join('\n');
-  log_('INFO', '-', '-', 'weekly seed: +' + picks.length + ' ร้าน');
   try {
-    Line.push_([Line.text('🌱 รายชื่อร้านประจำสัปดาห์ +' + picks.length + ' ร้าน ลงชีทแล้ว\nใส่รูปในคอลัมน์ M แล้วตั้งสถานะ ready ได้เลย\n\n' + summary.slice(0, 900))]);
-  } catch (e) {}
+    // ชื่อที่มีอยู่แล้ว (ทุกสถานะ) + ประวัติที่เคยแนะนำ
+    var existing = {};
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      var names = sheet.getRange(2, COL.NAME, lastRow - 1, 1).getValues();
+      names.forEach(function (r) { var k = normShopName_(r[0]); if (k) existing[k] = true; });
+    }
+    var seeded = [];
+    try { seeded = JSON.parse(props.getProperty('SEEDED_SHOPS') || '[]'); } catch (e) { seeded = []; }
+    seeded.forEach(function (n) { existing[normShopName_(n)] = true; });
 
-  return { added: picks.length, shops: picks };
+    var els = fetchOsmCafes_();
+    var cands = [];
+    els.forEach(function (el) {
+      if (el.closed) return;
+      var name = String(el.name || '').trim();
+      if (!name || name.length < 2) return;
+      if (/permanently closed|closed permanently|ปิดกิจการ/i.test(name)) return;
+      var low = name.toLowerCase();
+      var chain = CHAIN_WORDS.some(function (w) { return low.indexOf(String(w).toLowerCase()) !== -1; });
+      if (chain) return;
+      var k = normShopName_(name);
+      if (existing[k]) return;
+      var lat = el.lat || (el.center && el.center.lat);
+      var lon = el.lon || (el.center && el.center.lon);
+      if (!lat || !lon) return;
+      var zone = nearestZone_(lat, lon);
+      if (!zone) return;
+      // คะแนนความน่าเชื่อถือของข้อมูล (มีเวลาเปิด/ที่อยู่/เว็บ = มีตัวตนจริง)
+      var score = 0;
+      if (el.opening_hours) score += 3;
+      if (el.street || el.subtitle) score += 2;
+      if (el.website) score += 2;
+      if (el.phone) score += 1;
+      cands.push({ name: name, zone: zone, score: score, lat: lat, lon: lon });
+    });
+
+    // กันชื่อซ้ำภายในชุดเดียวกัน
+    var seen = {};
+    cands = cands.filter(function (c) {
+      var k = normShopName_(c.name);
+      if (seen[k]) return false;
+      seen[k] = true;
+      return true;
+    });
+
+    // กระจายให้ครบทุกย่าน: เรียงตามคะแนน แล้ววนย่านละร้าน
+    var byZone = {};
+    cands.forEach(function (c) {
+      (byZone[c.zone] = byZone[c.zone] || []).push(c);
+    });
+    var zoneKeys = Object.keys(byZone).sort();
+    zoneKeys.forEach(function (z) {
+      byZone[z].sort(function (a, b) { return b.score - a.score || a.name.localeCompare(b.name); });
+    });
+
+    var picks = [];
+    var guard = 0;
+    while (picks.length < limit && guard < 500) {
+      guard++;
+      var added = false;
+      for (var i = 0; i < zoneKeys.length && picks.length < limit; i++) {
+        var arr = byZone[zoneKeys[i]];
+        if (arr.length) { picks.push(arr.shift()); added = true; }
+      }
+      if (!added) break;
+    }
+
+    if (!picks.length) {
+      log_('WARN', '-', '-', 'weekly seed: ไม่พบร้านใหม่จาก OSM');
+      return { ok: false, added: 0, reason: 'ไม่พบร้านใหม่จาก OSM', ms: Date.now() - started };
+    }
+
+    var rows = picks.map(function (p) {
+      return [p.name, p.zone, '', '', '', '',
+        '🌱 รายชื่อร้านประจำสัปดาห์ — ใส่รูปในคอลัมน์ M แล้วตั้งสถานะ ready'];
+    });
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
+
+    // จำชื่อที่เคยแนะนำไว้ กันซ้ำข้ามสัปดาห์
+    var keep = seeded.concat(picks.map(function (p) { return p.name; })).slice(-800);
+    props.setProperty('SEEDED_SHOPS', JSON.stringify(keep));
+
+    var summary = picks.map(function (p) { return p.name + ' (' + p.zone + ')'; }).join('\n');
+    log_('INFO', '-', '-', 'weekly seed: +' + picks.length + ' ร้าน (' + Math.round((Date.now() - started) / 1000) + 's)');
+    try {
+      Line.push_([Line.text('🌱 รายชื่อร้านประจำสัปดาห์ +' + picks.length + ' ร้าน ลงชีทแล้ว\nใส่รูปในคอลัมน์ M แล้วตั้งสถานะ ready ได้เลย\n\n' + summary.slice(0, 900))]);
+    } catch (e) {}
+
+    return { ok: true, added: picks.length, ms: Date.now() - started, shops: picks };
+  } catch (err) {
+    var msg = String(err && err.message ? err.message : err);
+    log_('ERROR', '-', '-', 'weekly seed ล้มเหลว: ' + msg.slice(0, 400));
+    try {
+      Line.push_([Line.text('⚠️ หาร้านประจำสัปดาห์ไม่สำเร็จ\n' + msg.slice(0, 500))]);
+    } catch (e) {}
+    return { ok: false, added: 0, error: msg.slice(0, 400), ms: Date.now() - started };
+  }
+}
+
+/** ADMIN: ทดสอบแหล่งข้อมูล OSM (เวลา + จำนวน) */
+function testOsm() {
+  var out = [];
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('osm_cafes_v2');
+  if (cached) {
+    try { out.push({ step: 'cache', n: JSON.parse(cached).length, chars: cached.length }); } catch (e) {}
+  }
+  try {
+    var t0 = Date.now();
+    var els = fetchOsmCafes_();
+    out.push({ step: 'fetch', ok: true, n: els.length, ms: Date.now() - t0, sample: els.slice(0, 3).map(function (e) { return e.name + ' (' + (nearestZone_(e.lat, e.lon) || '-') + ')'; }) });
+  } catch (err) {
+    out.push({ step: 'fetch', ok: false, error: String(err && err.message ? err.message : err).slice(0, 300), ms: 0 });
+  }
+  return out;
 }
 
 /** ADMIN: ลบแถวร้านในรายชื่อห้าม (mass/chain) — เฉพาะแถว ≥ 15 เช่น "คาเฟ่ อเมซอน" */
