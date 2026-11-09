@@ -854,6 +854,60 @@ img { max-width: 100%; display: block; }
 .card-meta .views { color: var(--brand-deep); font-weight: 600; }
 .view-badge { color: var(--brand-deep); font-weight: 600; white-space: nowrap; }
 
+/* ---------- SEO / UX: breadcrumb, zone links, FAQ ---------- */
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  padding: 22px 0 0;
+}
+
+.breadcrumb a { color: var(--brand-deep); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span[aria-current] { color: var(--ink-soft); font-weight: 600; }
+
+a.zone-pill { text-decoration: none; }
+a.zone-pill:hover { background: var(--brand); color: #fff; }
+
+a.chip { text-decoration: none; display: inline-flex; align-items: center; }
+.zone-links { padding: 6px 0 46px; }
+
+.faq { margin: 34px 0 6px; }
+
+.faq h2 {
+  font-family: "Prompt", "IBM Plex Sans Thai", sans-serif;
+  font-size: 1.35rem;
+  margin: 0 0 14px;
+  color: var(--ink);
+}
+
+.faq details {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+}
+
+.faq summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--brand-deep); font-weight: 700; }
+.faq details[open] summary::after { content: "–"; }
+.faq p { margin: 10px 0 0; color: var(--ink-soft); line-height: 1.75; font-size: 0.95rem; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   .hero-grid { grid-template-columns: 1fr; gap: 32px; }
