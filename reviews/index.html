@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>แดชบอร์ดรวมรีวิว — ค้นหาและกรองคาเฟ่ | ไปคาเฟ่กัน</title>
+<meta name="description" content="รวมรีวิวคาเฟ่กรุงเทพฯ ทั้งหมดในที่เดียว ค้นหาชื่อร้าน กรองตามย่าน เรียงตามยอดวิว และดูความนิยมของแต่ละบทความ">
+<link rel="canonical" href="https://paicafekan.pages.dev/reviews/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="แดชบอร์ดรวมรีวิว — ค้นหาและกรองคาเฟ่ | ไปคาเฟ่กัน">
+<meta property="og:description" content="รวมรีวิวคาเฟ่กรุงเทพฯ ทั้งหมดในที่เดียว ค้นหาชื่อร้าน กรองตามย่าน เรียงตามยอดวิว และดูความนิยมของแต่ละบทความ">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://paicafekan.pages.dev/reviews/">
+<link rel="alternate" type="application/rss+xml" title="ไปคาเฟ่กัน" href="/feed.xml">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="/"><span class="brand-mark">☕</span><span>ไปคาเฟ่กัน<small>paicafekan.com</small></span></a>
+    <nav class="nav">
+      <a href="/">หน้าแรก</a>
+      <div class="zone-filter" id="zoneFilter">
+        <button type="button" class="zone-filter-btn" aria-haspopup="true" aria-expanded="false">
+          <span class="zone-filter-label">ย่าน</span><span class="caret">▾</span>
+        </button>
+        <div class="zone-menu">
+            <button type="button" class="zone-item active" data-zone="all">ทั้งหมด</button>
+            <button type="button" class="zone-item" data-zone="ทองหล่อ">ทองหล่อ</button>
+            <button type="button" class="zone-item" data-zone="บางรัก">บางรัก</button>
+            <button type="button" class="zone-item" data-zone="พญาไท">พญาไท</button>
+            <button type="button" class="zone-item" data-zone="พระนคร">พระนคร</button>
+            <button type="button" class="zone-item" data-zone="พระโขนง">พระโขนง</button>
+            <button type="button" class="zone-item" data-zone="สยาม">สยาม</button>
+            <button type="button" class="zone-item" data-zone="อารีย์">อารีย์</button>
+            <button type="button" class="zone-item" data-zone="อโศก">อโศก</button>
+            <button type="button" class="zone-item" data-zone="เจริญกรุง">เจริญกรุง</button>
+            <button type="button" class="zone-item" data-zone="เอกมัย">เอกมัย</button>
+        </div>
+      </div>
+      <a href="/#latest">รีวิวล่าสุด</a>
+      <a href="/reviews/">รวมรีวิว</a>
+      <a href="/about/">เกี่ยวกับ</a>
+      <a class="cta" href="/#latest">ไปดูร้าน</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <section class="reviews-hero">
+    <span class="eyebrow">✦ แดชบอร์ดรีวิว</span>
+    <h1>รวมรีวิว<em>ทั้งหมด</em></h1>
+    <p class="lead">ค้นหาชื่อร้าน กรองตามย่าน หรือเรียงตามยอดวิว — รวมทุกบทความที่เราเคยไปมาไว้ในหน้านี้</p>
+    <div class="stat-row">
+      <div class="stat"><strong id="statPosts">–</strong><span>รีวิวทั้งหมด</span></div>
+      <div class="stat"><strong id="statZones">–</strong><span>ย่าน</span></div>
+      <div class="stat"><strong id="statViews">–</strong><span>ยอดวิวรวม</span></div>
+    </div>
+  </section>
+  <section class="filter-bar">
+    <label class="search-box">
+      <span class="search-icon" aria-hidden="true">🔍</span>
+      <input id="reviewSearch" type="search" placeholder="ค้นหาร้าน ย่าน หรือเมนู…" autocomplete="off" aria-label="ค้นหารีวิว">
+    </label>
+    <label class="sort-box">
+      <span>เรียงโดย</span>
+      <select id="reviewSort">
+        <option value="new">ใหม่สุด</option>
+        <option value="popular">ยอดนิยม</option>
+        <option value="name">ชื่อ ก–ฮ</option>
+      </select>
+    </label>
+  </section>
+  <div class="chip-row" id="reviewChips"></div>
+  <p class="result-count" id="reviewCount">กำลังโหลด…</p>
+  <div class="post-grid" id="reviewGrid"></div>
+  <div class="empty" id="reviewEmpty" hidden><div style="font-size:52px">🔎</div><p>ไม่พบร้านที่ตรงกับคำค้น — ลองคำอื่นหรือเลือก “ทั้งหมด”</p></div>
+</main>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <span>© 2569 ไปคาเฟ่กัน · paicafekan.com</span>
+    <div class="footer-links"><a href="/reviews/">รวมรีวิว</a><a href="/about/">เกี่ยวกับ</a><a href="/sitemap.xml">Sitemap</a><a href="/feed.xml">RSS</a></div>
+  </div>
+</footer>
+<script src="/assets/reviews.js" defer></script>
+</body>
+</html>
