@@ -2305,6 +2305,7 @@ var Site = {
       relatedHtml,
       '</main>',
       Site.footer_(),
+      '<script src="/assets/views.js" defer></script>',
       '</body>',
       '</html>'
     ].join('\n');
@@ -2354,7 +2355,7 @@ var Site = {
       '  <section class="wrap" id="latest">',
       '    <div class="section-head">',
       '      <div><h2>รีวิวล่าสุด</h2><p>อัปเดตทุกเช้า 07:00</p></div>',
-      '      <a class="more" href="#latest">ดูทั้งหมด →</a>',
+      '      <a class="more" href="/reviews/">ดูทั้งหมด →</a>',
       '    </div>',
       '    <div class="post-grid">',
       cards,
@@ -2392,6 +2393,66 @@ var Site = {
       '})();',
       '  </script>',
       Site.footer_(),
+      '</body>',
+      '</html>'
+    ].join('\n');
+  },
+
+  /** หน้าแดชบอร์ดรวมรีวิว (/reviews/) — ค้นหา/กรอง/เรียงตามยอดวิว (เรนเดอร์ฝั่ง client) */
+  renderReviews_: function (manifest, cfg) {
+    var zones = [];
+    (manifest || []).forEach(function (p) {
+      var z = p.zone || 'กรุงเทพฯ';
+      if (zones.indexOf(z) === -1) zones.push(z);
+    });
+    zones.sort();
+
+    var head = Site.head_({
+      title: 'แดชบอร์ดรวมรีวิว — ค้นหาและกรองคาเฟ่ | ไปคาเฟ่กัน',
+      desc: 'รวมรีวิวคาเฟ่กรุงเทพฯ ทั้งหมดในที่เดียว ค้นหาชื่อร้าน กรองตามย่าน เรียงตามยอดวิว และดูความนิยมของแต่ละบทความ',
+      canonical: cfg.siteBase + '/reviews/',
+      url: cfg.siteBase + '/reviews/',
+      type: 'website'
+    });
+
+    return [
+      '<!DOCTYPE html>',
+      '<html lang="th">',
+      head,
+      '<body>',
+      Site.header_(zones),
+      '<main class="wrap">',
+      '  <section class="reviews-hero">',
+      '    <span class="eyebrow">✦ แดชบอร์ดรีวิว</span>',
+      '    <h1>รวมรีวิว<em>ทั้งหมด</em></h1>',
+      '    <p class="lead">ค้นหาชื่อร้าน กรองตามย่าน หรือเรียงตามยอดวิว — รวมทุกบทความที่เราเคยไปมาไว้ในหน้านี้</p>',
+      '    <div class="stat-row">',
+      '      <div class="stat"><strong id="statPosts">–</strong><span>รีวิวทั้งหมด</span></div>',
+      '      <div class="stat"><strong id="statZones">–</strong><span>ย่าน</span></div>',
+      '      <div class="stat"><strong id="statViews">–</strong><span>ยอดวิวรวม</span></div>',
+      '    </div>',
+      '  </section>',
+      '  <section class="filter-bar">',
+      '    <label class="search-box">',
+      '      <span class="search-icon" aria-hidden="true">🔍</span>',
+      '      <input id="reviewSearch" type="search" placeholder="ค้นหาร้าน ย่าน หรือเมนู…" autocomplete="off" aria-label="ค้นหารีวิว">',
+      '    </label>',
+      '    <label class="sort-box">',
+      '      <span>เรียงโดย</span>',
+      '      <select id="reviewSort">',
+      '        <option value="new">ใหม่สุด</option>',
+      '        <option value="popular">ยอดนิยม</option>',
+      '        <option value="name">ชื่อ ก–ฮ</option>',
+      '      </select>',
+      '    </label>',
+      '  </section>',
+      '  <div class="chip-row" id="reviewChips"></div>',
+      '  <p class="result-count" id="reviewCount">กำลังโหลด…</p>',
+      '  <div class="post-grid" id="reviewGrid"></div>',
+      '  <div class="empty" id="reviewEmpty" hidden><div style="font-size:52px">🔎</div><p>ไม่พบร้านที่ตรงกับคำค้น — ลองคำอื่นหรือเลือก “ทั้งหมด”</p></div>',
+      '</main>',
+      Site.footer_(),
+      '<script src="/assets/reviews.js" defer></script>',
       '</body>',
       '</html>'
     ].join('\n');
@@ -2479,6 +2540,7 @@ var Site = {
       '      <a href="/">หน้าแรก</a>',
       zoneNav,
       '      <a href="/#latest">รีวิวล่าสุด</a>',
+      '      <a href="/reviews/">รวมรีวิว</a>',
       '      <a href="/about/">เกี่ยวกับ</a>',
       '      <a class="cta" href="/#latest">ไปดูร้าน</a>',
       '    </nav>',
@@ -2492,7 +2554,7 @@ var Site = {
       '<footer class="site-footer">',
       '  <div class="footer-inner">',
       '    <span>© ' + (new Date().getFullYear() + 543) + ' ไปคาเฟ่กัน · paicafekan.com</span>',
-      '    <div class="footer-links"><a href="/about/">เกี่ยวกับ</a><a href="/sitemap.xml">Sitemap</a><a href="/feed.xml">RSS</a></div>',
+      '    <div class="footer-links"><a href="/reviews/">รวมรีวิว</a><a href="/about/">เกี่ยวกับ</a><a href="/sitemap.xml">Sitemap</a><a href="/feed.xml">RSS</a></div>',
       '  </div>',
       '</footer>'
     ].join('\n');
@@ -2572,6 +2634,7 @@ var Site = {
   renderSitemap_: function (manifest, cfg) {
     var rows = [
       '  <url><loc>' + esc_(cfg.siteBase + '/') + '</loc><changefreq>daily</changefreq><priority>1.0</priority></url>',
+      '  <url><loc>' + esc_(cfg.siteBase + '/reviews/') + '</loc><changefreq>daily</changefreq><priority>0.9</priority></url>',
       '  <url><loc>' + esc_(cfg.siteBase + '/about/') + '</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>'
     ];
     manifest.forEach(function (p) {
@@ -2726,6 +2789,7 @@ var Publish = {
 
     files.push({ path: 'data/posts.json', content: JSON.stringify(manifest, null, 2), encoding: 'utf-8' });
     files.push({ path: 'index.html', content: Site.renderIndex_(manifest, cfg), encoding: 'utf-8' });
+    files.push({ path: 'reviews/index.html', content: Site.renderReviews_(manifest, cfg), encoding: 'utf-8' });
     files.push({ path: 'sitemap.xml', content: Site.renderSitemap_(manifest, cfg), encoding: 'utf-8' });
     files.push({ path: 'feed.xml', content: Site.renderFeed_(manifest, cfg), encoding: 'utf-8' });
 
@@ -2743,6 +2807,7 @@ var Publish = {
     var files = [
       { path: 'data/posts.json', content: JSON.stringify(manifest, null, 2), encoding: 'utf-8' },
       { path: 'index.html', content: Site.renderIndex_(manifest, cfg), encoding: 'utf-8' },
+      { path: 'reviews/index.html', content: Site.renderReviews_(manifest, cfg), encoding: 'utf-8' },
       { path: 'sitemap.xml', content: Site.renderSitemap_(manifest, cfg), encoding: 'utf-8' },
       { path: 'feed.xml', content: Site.renderFeed_(manifest, cfg), encoding: 'utf-8' }
     ];
