@@ -1,5 +1,28 @@
 [
   {
+    "slug": "artis-coffee-01406",
+    "name": "Artis Coffee",
+    "zone": "พร้อมพงษ์",
+    "title": "Artis Coffee กลิ่นอายความคลาสสิกใจกลางสุขุมวิท 18 จิบกาแฟคั่วสดรสเข้มตั้งแต่เช้าตรู่",
+    "excerpt": "Artis Coffee คาเฟ่ย่านสุขุมวิท 18 โซนพร้อมพงษ์ เอาใจคอกาแฟด้วยการเปิดตั้งแต่ 06:30 น. เสิร์ฟกาแฟคั่วสดคุณภาพ บรรยากาศอบอุ่นพร้อม Wi-Fi ฟรี",
+    "date": "2026-11-10",
+    "photo": "assets/img/posts/artis-coffee-01406-1.webp",
+    "photos": [
+      "assets/img/posts/artis-coffee-01406-1.webp",
+      "assets/img/posts/artis-coffee-01406-2.webp",
+      "assets/img/posts/artis-coffee-01406-3.webp",
+      "assets/img/posts/artis-coffee-01406-4.webp",
+      "assets/img/posts/artis-coffee-01406-5.webp"
+    ],
+    "tags": [
+      "#ArtisCoffee",
+      "#คาเฟ่พร้อมพงษ์",
+      "#คาเฟ่สุขุมวิท",
+      "#คาเฟ่กรุงเทพ",
+      "#SpecialtyCoffee"
+    ]
+  },
+  {
     "slug": "pacamara-85544",
     "name": "Pacamara",
     "zone": "สีลม",
