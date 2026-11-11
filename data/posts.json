@@ -1,5 +1,28 @@
 [
   {
+    "slug": "kaarom-speciality-coffee-63998",
+    "name": "Kaarom Speciality Coffee",
+    "zone": "จตุจักร",
+    "title": "Kaarom Speciality Coffee คาเฟ่สไตล์มินิมัลใจกลางจตุจักร บรรยากาศสบายกาแฟรสลึก",
+    "excerpt": "คาเฟ่ Kaarom Speciality Coffee ที่จตุจักร ให้บรรยากาศผ่อนคลายและกาแฟคุณภาพ เหมาะกับการพักผ่อนหรือทำงาน",
+    "date": "2026-11-11",
+    "photo": "assets/img/posts/kaarom-speciality-coffee-63998-1.webp",
+    "photos": [
+      "assets/img/posts/kaarom-speciality-coffee-63998-1.webp",
+      "assets/img/posts/kaarom-speciality-coffee-63998-2.webp",
+      "assets/img/posts/kaarom-speciality-coffee-63998-3.webp",
+      "assets/img/posts/kaarom-speciality-coffee-63998-4.webp",
+      "assets/img/posts/kaarom-speciality-coffee-63998-5.webp"
+    ],
+    "tags": [
+      "#จตุจักร",
+      "#คาเฟ่จตุจักร",
+      "#SpecialtyCoffee",
+      "#คาเฟ่บรรยากาศดีกรุงเทพ",
+      "#กาแฟรสลึก"
+    ]
+  },
+  {
     "slug": "la-cabra-40780",
     "name": "La Cabra",
     "zone": "เจริญกรุง",
