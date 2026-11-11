@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://paicafekan.pages.dev/sitemap.xml
+Sitemap: https://paicafekan.com/sitemap.xml
