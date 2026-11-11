@@ -5,7 +5,7 @@
 // ตัวนี้จึงรับ event แล้วตอบ 200 ทันที พร้อมส่งต่อไป Apps Script แบบเบื้องหลัง
 
 const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbzzYOwMqImEiZ1YmsL6EIC-6LCF2QyinsEqlTfXYNQ-WbkjoTqBOAbzaaNj46muXTAl/exec';
+  'https://script.google.com/macros/s/AKfycbxr2r1JsXgOtUmBsy-fHI7aG2e1uJ0vyRo7aXkMAxwUd7Ve_K2lfS6Gcdo-0G7WNKocwA/exec';
 
 export async function onRequestPost(context) {
   const { request } = context;
