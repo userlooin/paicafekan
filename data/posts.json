@@ -1,5 +1,28 @@
 [
   {
+    "slug": "la-cabra-40780",
+    "name": "La Cabra",
+    "zone": "เจริญกรุง",
+    "title": "La Cabra คาเฟ่สไตล์สเปนในย่านเจริญกรุง บรรยากาศเปิดโล่งกาแฟหอมกรุ่น",
+    "excerpt": "La Cabra คาเฟ่สไตล์สเปนในเจริญกรุง มีบรรยากาศเปิดโล่งและเมนูกาแฟคุณภาพ เหมาะสำหรับพักผ่อนหรือทำงาน",
+    "date": "2026-11-11",
+    "photo": "assets/img/posts/la-cabra-40780-1.webp",
+    "photos": [
+      "assets/img/posts/la-cabra-40780-1.webp",
+      "assets/img/posts/la-cabra-40780-2.webp",
+      "assets/img/posts/la-cabra-40780-3.webp",
+      "assets/img/posts/la-cabra-40780-4.webp",
+      "assets/img/posts/la-cabra-40780-5.webp"
+    ],
+    "tags": [
+      "#เจริญกรุง",
+      "#คาเฟ่บรรยากาศดี",
+      "#LaCabra",
+      "#กาแฟสเปน",
+      "#OutdoorSeating"
+    ]
+  },
+  {
     "slug": "mother-roaster-68685",
     "name": "Mother Roaster",
     "zone": "เยาวราช",
