@@ -1,5 +1,28 @@
 [
   {
+    "slug": "invisible-coffee-room-40621",
+    "name": "Invisible Coffee Room",
+    "zone": "พร้อมพงษ์",
+    "title": "Invisible Coffee Room หลบมุมวุ่นวายมาพักใจในซอยสุขุมวิท 16 จิบกาแฟคุณภาพดี บรรยากาศมินิมอลสบายตา",
+    "excerpt": "Invisible Coffee Room คาเฟ่ไซส์มินิมอลในซอยสุขุมวิท 16 บรรยากาศโปร่งสบาย เสิร์ฟกาแฟสเปเชียลตี้รสชาติดี เหมาะสำหรับแวะพักใจและเติมพลังยามเช้า",
+    "date": "2026-11-12",
+    "photo": "assets/img/posts/invisible-coffee-room-40621-1.webp",
+    "photos": [
+      "assets/img/posts/invisible-coffee-room-40621-1.webp",
+      "assets/img/posts/invisible-coffee-room-40621-2.webp",
+      "assets/img/posts/invisible-coffee-room-40621-3.webp",
+      "assets/img/posts/invisible-coffee-room-40621-4.webp",
+      "assets/img/posts/invisible-coffee-room-40621-5.webp"
+    ],
+    "tags": [
+      "#InvisibleCoffeeRoom",
+      "#คาเฟ่พร้อมพงษ์",
+      "#คาเฟ่สุขุมวิท",
+      "#คาเฟ่มินิมอล",
+      "#SpecialtyCoffeeBangkok"
+    ]
+  },
+  {
     "slug": "kaarom-speciality-coffee-63998",
     "name": "Kaarom Speciality Coffee",
     "zone": "จตุจักร",
