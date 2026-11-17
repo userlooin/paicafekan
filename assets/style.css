@@ -10,7 +10,7 @@
   --card: #ffffff;
   --ink: #0f2433;
   --ink-soft: #3a566b;
-  --muted: #6b8699;
+  --muted: #54748a;
   --brand: #4f9fd8;
   --brand-deep: #1f5f8b;
   --brand-pale: #d8ecfb;
@@ -314,8 +314,9 @@ p { text-wrap: pretty; }
   position: absolute;
   inset: auto 0 0 0;
   padding: 56px 22px 20px;
-  background: linear-gradient(to top, rgba(9, 32, 48, 0.86) 0%, rgba(9, 32, 48, 0.4) 55%, rgba(9, 32, 48, 0) 100%);
+  background: linear-gradient(to top, rgba(7, 26, 40, 0.94) 0%, rgba(7, 26, 40, 0.72) 42%, rgba(7, 26, 40, 0.18) 78%, rgba(7, 26, 40, 0) 100%);
   color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .hero-feature-body .zone { margin-bottom: 10px; }
 .hero-feature-body h2 {
@@ -327,7 +328,7 @@ p { text-wrap: pretty; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.hero-feature-body p { margin: 6px 0 0; font-size: 0.78rem; color: rgba(255, 255, 255, 0.76); }
+.hero-feature-body p { margin: 6px 0 0; font-size: 0.8rem; color: rgba(255, 255, 255, 0.9); }
 
 .hero-badge {
   position: absolute;
