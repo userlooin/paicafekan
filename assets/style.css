@@ -30,13 +30,13 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; font-size: 17px; }
 
 body {
   margin: 0;
   color: var(--ink);
   font-family: "IBM Plex Sans Thai", "Noto Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 17px;
+  font-size: 1rem;
   line-height: 1.75;
   background:
     radial-gradient(1100px 620px at 88% -12%, #def0ff 0%, rgba(222, 240, 255, 0) 62%),
@@ -909,7 +909,8 @@ p { text-wrap: pretty; }
 }
 
 @media (max-width: 620px) {
-  body { font-size: 16px; }
+  html { font-size: 16px; }
+  body { font-size: 1rem; }
   .wrap { padding: 0 18px; }
   .hero { padding: 42px 0 34px; }
   .hero-stats { gap: 18px; }
