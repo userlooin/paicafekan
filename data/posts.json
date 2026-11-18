@@ -1,5 +1,28 @@
 [
   {
+    "slug": "backofhouse-coffee-16801",
+    "name": "backofhouse coffee",
+    "zone": "พระโขนง",
+    "title": "backofhouse คาเฟ่พระโขนง บรรยากาศมินิมัลเมนูเบรคฟาสต์",
+    "excerpt": "บรรยากาศมินิมัลของ backofhouse coffee ในซอยพัฒนาการ 30 ทำให้คุณเพลิดเพลินกับเบรคฟาสต์คุณภาพและ Wi‑Fi ฟรี อยากไปลองไหม?",
+    "date": "2026-11-18",
+    "photo": "assets/img/posts/backofhouse-coffee-16801-1.webp",
+    "photos": [
+      "assets/img/posts/backofhouse-coffee-16801-1.webp",
+      "assets/img/posts/backofhouse-coffee-16801-2.webp",
+      "assets/img/posts/backofhouse-coffee-16801-3.webp",
+      "assets/img/posts/backofhouse-coffee-16801-4.webp",
+      "assets/img/posts/backofhouse-coffee-16801-5.webp"
+    ],
+    "tags": [
+      "#พระโขนง",
+      "#คาเฟ่",
+      "#มินิมัล",
+      "#เบรคฟาสต์",
+      "#WiFi"
+    ]
+  },
+  {
     "slug": "adelfee-69601",
     "name": "Adelfee",
     "zone": "ทองหล่อ",
