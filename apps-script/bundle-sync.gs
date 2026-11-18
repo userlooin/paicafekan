@@ -1208,7 +1208,8 @@ function aiPickPhotoUrls_(name, zone, candidates) {
  * ADMIN: หาลิงก์รูปด้วย AI (OSM + og:image + ผลค้นหาเว็บ -> AI เลือก -> ตรวจว่าโหลดได้จริง)
  * คืนรายการให้ดูก่อน ไม่เขียนลงชีต
  */
-function photoSuggestAi_(limit) {
+function photoSuggestAi_(limit, opts) {
+  opts = opts || {};
   var cfg = getConfig_();
   var sheet = getSheet_(cfg.sheetName);
   var last = sheet.getLastRow();
@@ -1216,10 +1217,11 @@ function photoSuggestAi_(limit) {
   if (last < 2) return out;
   var rows = sheet.getRange(2, 1, last - 1, HEADERS.length).getValues();
   var max = Number(limit || 3);
+  var start = Math.max(0, Number(opts.startRow || 0));
+  var maxScan = Math.max(1, Number(opts.maxScan || 8)); // กันการค้นหายาวเกิน 6 นาที
   var scanned = 0;
-  var MAX_SCAN = 8; // กันการค้นหายาวเกิน 6 นาที (DDG + AI + ตรวจรูป)
 
-  for (var i = 0; i < rows.length && out.length < max && scanned < MAX_SCAN; i++) {
+  for (var i = start; i < rows.length && out.length < max && scanned < maxScan; i++) {
     var name = String(rows[i][COL.NAME - 1] || '').trim();
     var zone = String(rows[i][COL.ZONE - 1] || '').trim();
     var status = String(rows[i][COL.STATUS - 1] || '').trim().toLowerCase();
@@ -1247,7 +1249,7 @@ function photoSuggestAi_(limit) {
     var ok = validPhotoUrls_(cfg, ordered, 3);
     if (!ok.length) { log_('WARN', '-', '-', 'AI ลิงก์รูป: โหลดรูปไม่ได้เลยสำหรับ ' + name); continue; }
 
-    out.push({ row: i + 2, name: name, zone: zone, urls: ok, provider: provider, aiPicked: picked });
+    out.push({ row: i + 2, name: name, zone: zone, urls: ok, provider: provider, aiPicked: picked, candidates: all.length });
     Utilities.sleep(400);
   }
   log_('INFO', '-', '-', 'AI PHOTO SUGGEST ' + out.map(function (o) {
