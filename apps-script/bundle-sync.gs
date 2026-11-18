@@ -1122,19 +1122,28 @@ function fillPhotosMenu() {
 /** หา URL รูปจากผลค้นหาเว็บฟรี (DuckDuckGo HTML) — ไม่ต้องใช้ API key */
 function webImageCandidates_(name, zone) {
   var urls = [];
+  var cacheKey = 'webimg_' + String(name + '|' + zone).slice(0, 120);
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get(cacheKey);
+  if (hit) {
+    try { return JSON.parse(hit); } catch (e) { return []; }
+  }
   var q = '"' + name + '" ' + (zone ? zone + ' ' : '') + 'cafe Bangkok';
   var url = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q);
   var html = '';
   try {
     var res = Places.fetch_(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36', 'Accept-Language': 'th,en;q=0.8' },
-      deadline: 20000
+      deadline: 8000
     });
     if (res.getResponseCode() === 200) html = res.getContentText();
   } catch (e) {
     log_('WARN', '-', '-', 'ค้นหารูปจากเว็บไม่ได้: ' + String(e && e.message ? e.message : e).slice(0, 160));
   }
-  if (!html) return urls;
+  if (!html) {
+    try { cache.put(cacheKey, '[]', 1800); } catch (e) {}
+    return urls;
+  }
 
   // ภาพตัวอย่างของ DuckDuckGo เป็น proxy: /iu/?u=<url ต้นฉบับ>
   var re = /https?:\/\/external-content\.duckduckgo\.com\/iu\/\?u=([^&"'<>\s]+)/gi;
@@ -1152,7 +1161,9 @@ function webImageCandidates_(name, zone) {
     if (urls.indexOf(u2) === -1) urls.push(u2);
     if (urls.length >= 20) break;
   }
-  return urls.slice(0, 20).map(normalizePhotoUrl_).filter(Boolean);
+  var found = urls.slice(0, 20).map(normalizePhotoUrl_).filter(Boolean);
+  try { cache.put(cacheKey, JSON.stringify(found), 1800); } catch (e) {}
+  return found;
 }
 
 /**
@@ -1204,13 +1215,16 @@ function photoSuggestAi_(limit) {
   if (last < 2) return out;
   var rows = sheet.getRange(2, 1, last - 1, HEADERS.length).getValues();
   var max = Number(limit || 3);
+  var scanned = 0;
+  var MAX_SCAN = 8; // กันการค้นหายาวเกิน 6 นาที (DDG + AI + ตรวจรูป)
 
-  for (var i = 0; i < rows.length && out.length < max; i++) {
+  for (var i = 0; i < rows.length && out.length < max && scanned < MAX_SCAN; i++) {
     var name = String(rows[i][COL.NAME - 1] || '').trim();
     var zone = String(rows[i][COL.ZONE - 1] || '').trim();
     var status = String(rows[i][COL.STATUS - 1] || '').trim().toLowerCase();
     var manual = String(rows[i][COL.PHOTO_IN - 1] || '').trim();
-    if (!name || manual || status === STATUS.PUBLISHED || status === STATUS.REJECTED) continue;
+    if (!name || manual || status === STATUS.PUBLISHED || status === STATUS.REJECTED || status === STATUS.SCHEDULED) continue;
+    scanned++;
 
     var base = photoCandidates_(name, zone, '');
     var web = webImageCandidates_(name, zone);
@@ -1545,6 +1559,10 @@ function aiOpenAiCompat_(p, prompt, cfg) {
  */
 function aiAskText_(prompt, cfg, opts) {
   cfg = cfg || getConfig_();
+  // งานลิงก์รูปต้องการคำตอบสั้น ๆ → ปิด thinking budget ของ Gemini เพื่อความเร็ว
+  var textCfg = {};
+  for (var tk in cfg) textCfg[tk] = cfg[tk];
+  textCfg.thinkingBudget = 0;
   opts = opts || {};
   var skip = opts.skip || [];
   var errors = [];
@@ -1561,7 +1579,7 @@ function aiAskText_(prompt, cfg, opts) {
 
     try {
       var text = (p.kind === 'gemini')
-        ? askGeminiText_(prompt, cfg)
+        ? askGeminiText_(prompt, textCfg)
         : aiChatContent_(p, prompt, cfg, true);
       if (!text) throw new Error('ได้ข้อความว่างจาก ' + p.label);
       aiProps_().deleteProperty('AI_COOL_' + p.id);
