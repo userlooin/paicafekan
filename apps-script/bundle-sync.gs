@@ -1188,7 +1188,8 @@ function aiPickPhotoUrls_(name, zone, candidates) {
     uniq.map(function (u, i) { return (i + 1) + '. ' + u; }).join('\n')
   ].join('\n');
 
-  var ans = aiAskText_(prompt, getConfig_());
+  // Gemini สำหรับเขียนบทความมักติด 503/โควตา → งานสั้น ๆ ให้ Groq/ค่ายสำรองไปก่อน
+  var ans = aiAskText_(prompt, getConfig_(), { skip: ['gemini'] });
   var data = null;
   try {
     data = JSON.parse(ans.text);
