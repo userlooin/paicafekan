@@ -1119,14 +1119,69 @@ function fillPhotosMenu() {
 
 /* ---------------- AI ช่วยเลือกลิงก์รูป (ใช้ห่วงโซ่ AI สำรอง) ---------------- */
 
-/** หา URL รูปจากผลค้นหาเว็บฟรี (DuckDuckGo HTML) — ไม่ต้องใช้ API key */
-function webImageCandidates_(name, zone) {
+/** หา URL รูปจาก DuckDuckGo Images (JSON) — ฟรี ไม่ต้องใช้ API key */
+function ddgImageCandidates_(name, zone) {
   var urls = [];
-  var cacheKey = 'webimg_' + String(name + '|' + zone).slice(0, 120);
+  var cacheKey = 'ddgimg_' + String(name + '|' + zone).slice(0, 120);
   var cache = CacheService.getScriptCache();
   var hit = cache.get(cacheKey);
   if (hit) {
     try { return JSON.parse(hit); } catch (e) { return []; }
+  }
+
+  var q = name + ' ' + (zone ? zone + ' ' : '') + 'cafe Bangkok';
+  var ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36';
+  try {
+    var searchUrl = 'https://duckduckgo.com/?q=' + encodeURIComponent(q) + '&iax=images&ia=images';
+    var page = Places.fetch_(searchUrl, {
+      headers: { 'User-Agent': ua, 'Accept-Language': 'th,en;q=0.8' },
+      deadline: 8000
+    });
+    if (page.getResponseCode() === 200) {
+      var html = page.getContentText();
+      var m = html.match(/vqd=["']?([^&"'\s]+)/);
+      if (m) {
+        var api = 'https://duckduckgo.com/i.js?q=' + encodeURIComponent(q) +
+          '&o=json&vqd=' + encodeURIComponent(m[1]) + '&f=,,,&p=1';
+        var res = Places.fetch_(api, {
+          headers: { 'User-Agent': ua, 'Referer': 'https://duckduckgo.com/', 'Accept': 'application/json' },
+          deadline: 10000
+        });
+        if (res.getResponseCode() === 200) {
+          var data = JSON.parse(res.getContentText() || '{}');
+          var list = (data && data.results) || [];
+          for (var i = 0; i < list.length; i++) {
+            var candidates = [list[i].image, list[i].thumbnail];
+            for (var j = 0; j < candidates.length; j++) {
+              var u = candidates[j];
+              if (u && urls.indexOf(u) === -1) urls.push(u);
+              if (urls.length >= 24) break;
+            }
+            if (urls.length >= 24) break;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    log_('WARN', '-', '-', 'ค้นหารูปจาก DDG Images ไม่ได้: ' + String(e && e.message ? e.message : e).slice(0, 160));
+  }
+  var found = urls.map(normalizePhotoUrl_).filter(Boolean);
+  try { cache.put(cacheKey, JSON.stringify(found), 1800); } catch (e) {}
+  return found;
+}
+
+/** หา URL รูปจากผลค้นหาเว็บฟรี (DDG Images + DDG HTML) — ไม่ต้องใช้ API key */
+function webImageCandidates_(name, zone) {
+  var urls = ddgImageCandidates_(name, zone).slice();
+  var cacheKey = 'webimg_' + String(name + '|' + zone).slice(0, 120);
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get(cacheKey);
+  if (hit) {
+    try {
+      var extra = JSON.parse(hit);
+      extra.forEach(function (u) { if (urls.indexOf(u) === -1) urls.push(u); });
+      return urls;
+    } catch (e) {}
   }
   var q = '"' + name + '" ' + (zone ? zone + ' ' : '') + 'cafe Bangkok';
   var url = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q);
@@ -1141,27 +1196,31 @@ function webImageCandidates_(name, zone) {
     log_('WARN', '-', '-', 'ค้นหารูปจากเว็บไม่ได้: ' + String(e && e.message ? e.message : e).slice(0, 160));
   }
   if (!html) {
-    try { cache.put(cacheKey, '[]', 1800); } catch (e) {}
+    try { cache.put(cacheKey, JSON.stringify(urls), 1800); } catch (e) {}
     return urls;
   }
 
+  var htmlUrls = [];
   // ภาพตัวอย่างของ DuckDuckGo เป็น proxy: /iu/?u=<url ต้นฉบับ>
   var re = /https?:\/\/external-content\.duckduckgo\.com\/iu\/\?u=([^&"'<>\s]+)/gi;
   var m;
   while ((m = re.exec(html))) {
     var u = m[1];
     try { u = decodeURIComponent(u); } catch (e) {}
-    if (urls.indexOf(u) === -1) urls.push(u);
-    if (urls.length >= 12) break;
+    if (htmlUrls.indexOf(u) === -1) htmlUrls.push(u);
+    if (htmlUrls.length >= 12) break;
   }
   // ลิงก์รูปตรง ๆ ที่โผล่ในผลค้นหา
   var re2 = /https?:\/\/[^"'<>\s]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'<>\s]*)?/gi;
   while ((m = re2.exec(html))) {
     var u2 = String(m[0]).replace(/&amp;/g, '&');
-    if (urls.indexOf(u2) === -1) urls.push(u2);
-    if (urls.length >= 20) break;
+    if (htmlUrls.indexOf(u2) === -1) htmlUrls.push(u2);
+    if (htmlUrls.length >= 20) break;
   }
-  var found = urls.slice(0, 20).map(normalizePhotoUrl_).filter(Boolean);
+  htmlUrls.map(normalizePhotoUrl_).filter(Boolean).forEach(function (u) {
+    if (urls.indexOf(u) === -1) urls.push(u);
+  });
+  var found = urls.slice(0, 28);
   try { cache.put(cacheKey, JSON.stringify(found), 1800); } catch (e) {}
   return found;
 }
