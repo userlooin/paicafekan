@@ -1204,6 +1204,30 @@ function aiPickPhotoUrls_(name, zone, candidates) {
   return { provider: ans.provider, urls: clean.slice(0, 3) };
 }
 
+/** ADMIN: รายการแถวที่ยังไม่มีรูปและยังโพสต์ได้ (ใช้ตรวจก่อนรันหาลิงก์) */
+function photoEligibleRows_() {
+  var cfg = getConfig_();
+  var sheet = getSheet_(cfg.sheetName);
+  var last = sheet.getLastRow();
+  var out = [];
+  if (last < 2) return out;
+  var rows = sheet.getRange(2, 1, last - 1, HEADERS.length).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    var name = String(rows[i][COL.NAME - 1] || '').trim();
+    var status = String(rows[i][COL.STATUS - 1] || '').trim().toLowerCase();
+    var manual = String(rows[i][COL.PHOTO_IN - 1] || '').trim();
+    if (!name || manual || status === STATUS.PUBLISHED || status === STATUS.REJECTED || status === STATUS.SCHEDULED) continue;
+    out.push({
+      index: i,
+      row: i + 2,
+      name: name,
+      zone: String(rows[i][COL.ZONE - 1] || '').trim(),
+      status: status
+    });
+  }
+  return out;
+}
+
 /**
  * ADMIN: หาลิงก์รูปด้วย AI (OSM + og:image + ผลค้นหาเว็บ -> AI เลือก -> ตรวจว่าโหลดได้จริง)
  * คืนรายการให้ดูก่อน ไม่เขียนลงชีต
