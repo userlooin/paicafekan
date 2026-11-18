@@ -65,6 +65,8 @@ function onOpen() {
     .addSeparator()
     .addItem('หาลิงก์รูปให้ร้านที่ยังไม่มี (ดูผล)', 'showPhotoSuggest')
     .addItem('เติมลิงก์รูปลงคอลัมน์ M', 'fillPhotosMenu')
+    .addItem('AI ช่วยเลือกลิงก์รูป (ดูผล)', 'showPhotoSuggestAi')
+    .addItem('AI เติมลิงก์รูปลงคอลัมน์ M', 'fillPhotosAiMenu')
     .addItem('สถานะ AI (โควตา/ค่ายสำรอง)', 'showAiStatus')
     .addSeparator()
     .addItem('โพสต์ที่รออนุมัติทั้งหมด (ข้ามการกด ok)', 'publishAllPending')
@@ -1115,6 +1117,167 @@ function fillPhotosMenu() {
   return r;
 }
 
+/* ---------------- AI ช่วยเลือกลิงก์รูป (ใช้ห่วงโซ่ AI สำรอง) ---------------- */
+
+/** หา URL รูปจากผลค้นหาเว็บฟรี (DuckDuckGo HTML) — ไม่ต้องใช้ API key */
+function webImageCandidates_(name, zone) {
+  var urls = [];
+  var q = '"' + name + '" ' + (zone ? zone + ' ' : '') + 'cafe Bangkok';
+  var url = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q);
+  var html = '';
+  try {
+    var res = Places.fetch_(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36', 'Accept-Language': 'th,en;q=0.8' },
+      deadline: 20000
+    });
+    if (res.getResponseCode() === 200) html = res.getContentText();
+  } catch (e) {
+    log_('WARN', '-', '-', 'ค้นหารูปจากเว็บไม่ได้: ' + String(e && e.message ? e.message : e).slice(0, 160));
+  }
+  if (!html) return urls;
+
+  // ภาพตัวอย่างของ DuckDuckGo เป็น proxy: /iu/?u=<url ต้นฉบับ>
+  var re = /https?:\/\/external-content\.duckduckgo\.com\/iu\/\?u=([^&"'<>\s]+)/gi;
+  var m;
+  while ((m = re.exec(html))) {
+    var u = m[1];
+    try { u = decodeURIComponent(u); } catch (e) {}
+    if (urls.indexOf(u) === -1) urls.push(u);
+    if (urls.length >= 12) break;
+  }
+  // ลิงก์รูปตรง ๆ ที่โผล่ในผลค้นหา
+  var re2 = /https?:\/\/[^"'<>\s]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'<>\s]*)?/gi;
+  while ((m = re2.exec(html))) {
+    var u2 = String(m[0]).replace(/&amp;/g, '&');
+    if (urls.indexOf(u2) === -1) urls.push(u2);
+    if (urls.length >= 20) break;
+  }
+  return urls.slice(0, 20).map(normalizePhotoUrl_).filter(Boolean);
+}
+
+/**
+ * ให้ AI เลือกลิงก์รูปที่น่าจะเป็นของร้านจริงจาก "รายการที่เราหามาแล้วเท่านั้น"
+ * ห้าม AI แต่ง URL ขึ้นมาใหม่ — ผลที่ได้จะถูกกรองด้วยรายการเดิมอีกชั้น
+ */
+function aiPickPhotoUrls_(name, zone, candidates) {
+  var uniq = [];
+  candidates.forEach(function (u) { if (u && uniq.indexOf(u) === -1) uniq.push(u); });
+  uniq = uniq.slice(0, 14);
+  if (!uniq.length) return { provider: '-', urls: [] };
+
+  var prompt = [
+    'คุณเป็นผู้ช่วยจัดหาภาพประกอบบทความคาเฟ่ของเว็บ paicafekan.com',
+    'ร้าน: ' + name + ' | ย่าน: ' + zone + ' กรุงเทพฯ',
+    'ด้านล่างคือลิงก์รูปที่ระบบค้นหาเว็บเจอมาจริง (อาจมีรูปที่ไม่เกี่ยวข้องปนอยู่)',
+    'เลือกเฉพาะลิงก์ที่น่าจะเป็นรูปของร้านนี้หรือบรรยากาศร้านจริง จากรายการด้านล่างเท่านั้น',
+    'ห้ามแต่งลิงก์ใหม่ ห้ามเดาชื่อไฟล์ ห้ามเปลี่ยนตัวอักษรในลิงก์ ถ้าไม่แน่ใจให้ไม่เลือก',
+    'ตอบ JSON เท่านั้น ในรูปแบบ: {"urls":["ลิงก์จากรายการ","ลิงก์จากรายการ"]} (สูงสุด 3 ลิงก์)',
+    '',
+    'รายการลิงก์:',
+    uniq.map(function (u, i) { return (i + 1) + '. ' + u; }).join('\n')
+  ].join('\n');
+
+  var ans = aiAskText_(prompt, getConfig_());
+  var data = null;
+  try {
+    data = JSON.parse(ans.text);
+  } catch (e) {
+    var m = String(ans.text).match(/\{[\s\S]*\}/);
+    if (m) { try { data = JSON.parse(m[0]); } catch (e2) {} }
+  }
+  var picked = (data && data.urls) || (data && data.links) || [];
+  if (!Array.isArray(picked)) picked = [];
+  var clean = picked.map(function (u) { return String(u || '').trim(); })
+    .filter(function (u) { return uniq.indexOf(u) !== -1; });
+  return { provider: ans.provider, urls: clean.slice(0, 3) };
+}
+
+/**
+ * ADMIN: หาลิงก์รูปด้วย AI (OSM + og:image + ผลค้นหาเว็บ -> AI เลือก -> ตรวจว่าโหลดได้จริง)
+ * คืนรายการให้ดูก่อน ไม่เขียนลงชีต
+ */
+function photoSuggestAi_(limit) {
+  var cfg = getConfig_();
+  var sheet = getSheet_(cfg.sheetName);
+  var last = sheet.getLastRow();
+  var out = [];
+  if (last < 2) return out;
+  var rows = sheet.getRange(2, 1, last - 1, HEADERS.length).getValues();
+  var max = Number(limit || 3);
+
+  for (var i = 0; i < rows.length && out.length < max; i++) {
+    var name = String(rows[i][COL.NAME - 1] || '').trim();
+    var zone = String(rows[i][COL.ZONE - 1] || '').trim();
+    var status = String(rows[i][COL.STATUS - 1] || '').trim().toLowerCase();
+    var manual = String(rows[i][COL.PHOTO_IN - 1] || '').trim();
+    if (!name || manual || status === STATUS.PUBLISHED || status === STATUS.REJECTED) continue;
+
+    var base = photoCandidates_(name, zone, '');
+    var web = webImageCandidates_(name, zone);
+    var all = [];
+    base.urls.concat(web).forEach(function (u) { if (u && all.indexOf(u) === -1) all.push(u); });
+    if (!all.length) { log_('WARN', '-', '-', 'AI ลิงก์รูป: ไม่พบตัวเลือกสำหรับ ' + name); continue; }
+
+    var picked = [];
+    var provider = '-';
+    try {
+      var ai = aiPickPhotoUrls_(name, zone, all);
+      picked = ai.urls;
+      provider = ai.provider;
+    } catch (e) {
+      // AI ใช้ไม่ได้ทั้งห่วงโซ่ -> ยังตรวจลิงก์ที่หาได้ตามลำดับเดิม
+      log_('WARN', '-', '-', 'AI เลือกลิงก์รูปไม่สำเร็จ ใช้ลำดับเดิม: ' + String(e && e.message ? e.message : e).slice(0, 200));
+    }
+    var ordered = picked.concat(all.filter(function (u) { return picked.indexOf(u) === -1; }));
+    var ok = validPhotoUrls_(cfg, ordered, 3);
+    if (!ok.length) { log_('WARN', '-', '-', 'AI ลิงก์รูป: โหลดรูปไม่ได้เลยสำหรับ ' + name); continue; }
+
+    out.push({ row: i + 2, name: name, zone: zone, urls: ok, provider: provider, aiPicked: picked });
+    Utilities.sleep(400);
+  }
+  log_('INFO', '-', '-', 'AI PHOTO SUGGEST ' + out.map(function (o) {
+    return o.row + ':' + o.name + '(' + o.provider + ',' + o.urls.length + ')';
+  }).join(' | '));
+  return out;
+}
+
+/** ADMIN: เติมลิงก์รูปที่ AI เลือกแล้วลงคอลัมน์ M (ผู้ใช้ตรวจก่อนกด ready เสมอ) */
+function autoFillPhotosAi_(limit) {
+  var cfg = getConfig_();
+  var sheet = getSheet_(cfg.sheetName);
+  var list = photoSuggestAi_(limit || 3);
+  list.forEach(function (o) {
+    sheet.getRange(o.row, COL.PHOTO_IN).setValue(o.urls.join('\n'));
+    sheet.getRange(o.row, COL.NOTE).setValue('AI เลือกลิงก์รูป (' + o.provider + ') ' + o.urls.length + ' รูป — ตรวจก่อนโพสต์');
+    log_('INFO', o.name, o.row, 'AI PHOTO FILL ' + o.urls.length + ': ' + o.urls.join(' '));
+  });
+  if (list.length) SpreadsheetApp.flush();
+  return { filled: list.length, rows: list.map(function (o) { return o.row + ':' + o.name; }) };
+}
+
+/** เมนูชีต: ดูลิงก์รูปที่ AI เลือก (ไม่เขียนลงชีต) */
+function showPhotoSuggestAi() {
+  var list = photoSuggestAi_(3);
+  var msg = list.length
+    ? list.map(function (o) {
+        return 'แถว ' + o.row + ' · ' + o.name + ' (' + o.zone + ') [' + o.provider + ']\n' + o.urls.join('\n');
+      }).join('\n\n')
+    : 'AI หาลิงก์รูปไม่เจอ (หรือทุกแถวมีรูปในคอลัมน์ M แล้ว)';
+  SpreadsheetApp.getUi().alert('AI ช่วยหาลิงก์รูป · ' + list.length + ' ร้าน', msg.slice(0, 1800), SpreadsheetApp.getUi().ButtonSet.OK);
+  return list;
+}
+
+/** เมนูชีต: เติมลิงก์รูปจาก AI ลงคอลัมน์ M */
+function fillPhotosAiMenu() {
+  var r = autoFillPhotosAi_(3);
+  SpreadsheetApp.getUi().alert(
+    'AI เติมลิงก์รูปแล้ว ' + r.filled + ' ร้าน',
+    r.rows.join('\n') || 'ไม่มีอะไรต้องเติม — ตรวจคอลัมน์ M แล้วกด ready ได้เลย',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+  return r;
+}
+
 /** เดาโซนจากที่อยู่ (ใช้แค่แสดงผล) */
 function guessZone_(address) {
   var zones = ['อารีย์', 'ทองหล่อ', 'เอกมัย', 'สาทร', 'สีลม', 'อโศก', 'พร้อมพงษ์', 'จตุจักร', 'บางรัก', 'พระโขนง', 'อ่อนนุช', 'ลาดพร้าว', 'รามคำแหง', 'บางนา', 'ตลาดพลู', 'เจริญกรุง', 'เยาวราช', 'สะพานควาย', 'พญาไท', 'ราชเทวี', 'ดินแดง', 'ห้วยขวาง', 'รัชดา', 'บางกะปิ', 'บางเขน', 'ดอนเมือง', 'หลักสี่', 'มีนบุรี', 'หนองจอก', 'คลองสาน', 'ธนบุรี', 'บางกอกน้อย', 'บางกอกใหญ่', 'ภาษีเจริญ', 'ตลิ่งชัน', 'บางแค', 'จอมทอง', 'บางขุนเทียน', 'ราษฎร์บูรณะ', 'ทุ่งครุ', 'สวนหลวง', 'ประเวศ', 'คันนายาว', 'บึงกุ่ม', 'วังทองหลาง', 'สายไหม', 'บางซื่อ', 'ดุสิต', 'ป้อมปราบ', 'สัมพันธวงศ์', 'ปทุมวัน', 'วัฒนา', 'คลองเตย'];
@@ -1311,8 +1474,11 @@ function aiGenerate_(prompt, cfg, opts) {
   throw new Error('AI ทุกเจ้าใช้งานไม่ได้ตอนนี้:\n' + errors.join('\n'));
 }
 
-/** เรียกผู้ให้บริการแบบ OpenAI-compatible (Groq/Cerebras/OpenRouter/Mistral/GitHub Models) */
-function aiOpenAiCompat_(p, prompt, cfg) {
+/**
+ * เรียกผู้ให้บริการแบบ OpenAI-compatible แล้วคืนข้อความ content
+ * ใช้ได้ทั้งงานเขียนบทความ (jsonMode=true) และงานช่วยเลือก/linking (jsonMode=false)
+ */
+function aiChatContent_(p, prompt, cfg, jsonMode) {
   var url = String(p.base).replace(/\/+$/, '') + '/chat/completions';
   var headers = { Authorization: 'Bearer ' + aiKey_(p) };
   if (p.id === 'openrouter') {
@@ -1320,26 +1486,26 @@ function aiOpenAiCompat_(p, prompt, cfg) {
     headers['X-Title'] = 'ไปคาเฟ่กัน';
   }
 
-  function payload(jsonMode) {
+  function payload(mode) {
     var body = {
       model: aiModel_(p),
       messages: [
-        { role: 'system', content: 'ตอบเป็น JSON อย่างเดียวเท่านั้น ห้ามมีข้อความอื่นนอก JSON' },
+        { role: 'system', content: mode ? 'ตอบเป็น JSON อย่างเดียวเท่านั้น ห้ามมีข้อความอื่นนอก JSON' : 'ตอบตามที่ถูกถาม กระชับและไม่แต่งข้อมูล' },
         { role: 'user', content: prompt }
       ],
       temperature: cfg.temperature || 0.8,
       max_tokens: 8192
     };
-    if (jsonMode) body.response_format = { type: 'json_object' };
+    if (mode) body.response_format = { type: 'json_object' };
     return body;
   }
 
-  function call(jsonMode) {
+  function call(mode) {
     var options = {
       method: 'post',
       contentType: 'application/json',
       headers: headers,
-      payload: JSON.stringify(payload(jsonMode)),
+      payload: JSON.stringify(payload(mode)),
       muteHttpExceptions: true
     };
     for (var attempt = 1; attempt <= 2; attempt++) {
@@ -1348,13 +1514,13 @@ function aiOpenAiCompat_(p, prompt, cfg) {
       var text = res.getContentText();
       if (code === 200) return text;
       if (code === 429 || code >= 500) { Utilities.sleep(Math.pow(2, attempt) * 1500); continue; }
-      if (code === 400 && /response_format/i.test(text) && jsonMode) return { retryNoJson: true };
+      if (code === 400 && /response_format/i.test(text) && mode) return { retryNoJson: true };
       throw new Error(p.id + ' HTTP ' + code + ': ' + text.slice(0, 300));
     }
     throw new Error(p.id + ' ล่มติดต่อกัน (429/5xx)');
   }
 
-  var text = call(true);
+  var text = call(jsonMode !== false);
   if (text && text.retryNoJson) text = call(false);
   if (!text || typeof text !== 'string') throw new Error(p.id + ' ไม่ตอบกลับ');
 
@@ -1362,11 +1528,53 @@ function aiOpenAiCompat_(p, prompt, cfg) {
   try { data = JSON.parse(text); } catch (e) { throw new Error('อ่าน response ของ ' + p.label + ' ไม่ได้: ' + text.slice(0, 200)); }
   var raw = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
   if (!raw) throw new Error(p.label + ' คืนข้อความว่าง');
-  raw = String(raw).trim();
+  return String(raw).trim();
+}
 
+/** เรียกผู้ให้บริการแบบ OpenAI-compatible (Groq/Cerebras/OpenRouter/Mistral/GitHub Models) */
+function aiOpenAiCompat_(p, prompt, cfg) {
+  var raw = aiChatContent_(p, prompt, cfg, true);
   var article = parseArticleRaw_(raw);
   article.raw = raw;
   return article;
+}
+
+/**
+ * ถาม AI แบบข้อความทั่วไป (ไม่ใช่บทความ) — ใช้ห่วงโซ่สำรองเหมือนกัน
+ * คืน { provider, label, text }
+ */
+function aiAskText_(prompt, cfg, opts) {
+  cfg = cfg || getConfig_();
+  opts = opts || {};
+  var skip = opts.skip || [];
+  var errors = [];
+  var last = aiProps_().getProperty('AI_LAST_OK') || '';
+  var order = AI_PROVIDERS.slice().sort(function (a, b) {
+    return (a.id === last ? 0 : 1) - (b.id === last ? 0 : 1);
+  });
+
+  for (var i = 0; i < order.length; i++) {
+    var p = order[i];
+    if (skip.indexOf(p.id) !== -1 || !aiKey_(p)) continue;
+    var left = aiCooldownLeft_(p.id);
+    if (left > 0) { errors.push(p.id + ': พักอยู่ ' + Math.ceil(left / 60000) + ' นาที'); continue; }
+
+    try {
+      var text = (p.kind === 'gemini')
+        ? askGeminiText_(prompt, cfg)
+        : aiChatContent_(p, prompt, cfg, true);
+      if (!text) throw new Error('ได้ข้อความว่างจาก ' + p.label);
+      aiProps_().deleteProperty('AI_COOL_' + p.id);
+      return { provider: p.id, label: p.label, text: text };
+    } catch (err) {
+      var msg = String(err && err.message ? err.message : err);
+      var kind = aiClassify_(msg);
+      aiSetCooldown_(p.id, AI_COOLDOWN_MS[kind] || AI_COOLDOWN_MS.other);
+      errors.push(p.id + ' [' + kind + ']: ' + msg.slice(0, 160));
+      log_('WARN', '-', '-', 'AI ' + p.label + ' (งานลิงก์รูป) ใช้ไม่ได้ → ต่อเจ้าถัดไป: ' + msg.slice(0, 160));
+    }
+  }
+  throw new Error('AI ทุกเจ้าใช้ไม่ได้ตอนนี้ (งานลิงก์รูป):\n' + errors.join('\n'));
 }
 
 /** ADMIN: ดูสถานะ AI ทุกเจ้าว่าพร้อมใช้/พักอยู่/ยังไม่มีคีย์ */
@@ -1636,6 +1844,46 @@ function askGeminiCore_(prompt, cfg) {
   }
 
   throw new Error('เรียก Gemini ไม่สำเร็จหลังลอง 4 ครั้ง — ' + lastError);
+}
+
+/**
+ * เรียก Gemini แบบข้อความทั่วไป (ไม่บังคับ responseSchema)
+ * ใช้กับงานช่วยเลือกลิงก์รูป / วิเคราะห์ข้อมูล ที่ไม่ใช่บทความ
+ */
+function askGeminiText_(prompt, cfg) {
+  if (!cfg.apiKey) throw new Error('ยังไม่ได้ตั้งค่า GEMINI_API_KEY (Project Settings > Script Properties)');
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+    + encodeURIComponent(cfg.model) + ':generateContent?key=' + encodeURIComponent(cfg.apiKey);
+  var payload = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: cfg.temperature || 0.4,
+      maxOutputTokens: 8192,
+      responseMimeType: 'application/json'
+    }
+  };
+  if (cfg.thinkingBudget !== null && cfg.thinkingBudget !== '' && cfg.thinkingBudget !== undefined) {
+    payload.generationConfig.thinkingConfig = { thinkingBudget: cfg.thinkingBudget };
+  }
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  var res = UrlFetchApp.fetch(url, options);
+  var code = res.getResponseCode();
+  var text = res.getContentText();
+  if (code !== 200) throw new Error('Gemini text HTTP ' + code + ': ' + text.slice(0, 400));
+  var json;
+  try { json = JSON.parse(text); } catch (e) { throw new Error('อ่าน response ของ Gemini ไม่ได้: ' + text.slice(0, 300)); }
+  var candidate = (json.candidates && json.candidates[0]) || null;
+  if (!candidate || !candidate.content || !candidate.content.parts) {
+    throw new Error('Gemini ไม่คืนเนื้อหา (blockReason: ' + ((json.promptFeedback && json.promptFeedback.blockReason) || 'ไม่ทราบสาเหตุ') + ')');
+  }
+  var raw = candidate.content.parts.map(function (p) { return p.text || ''; }).join('').trim();
+  if (!raw) throw new Error('Gemini คืนข้อความว่าง');
+  return raw;
 }
 
 /** ดึงข้อความจาก response แล้ว parse JSON (มี fallback) */
@@ -3107,7 +3355,7 @@ var Site = {
       '        </a>'
     ].join('\n') : '';
 
-    // ลิงก์ภายในตามย่าน -> หน้า /reviews/?zone=... (ช่วย crawl + ให้คนเลือกง่าย)
+    // ลิงก์ภายในตามย่าน -> หน้า /cafe/<slug>/ (ช่วย crawl + ให้คนเลือกง่าย)
     var zoneLinks = zones.length ? [
       '  <section class="wrap zone-links">',
       '    <div class="section-head">',
@@ -3521,7 +3769,7 @@ var Site = {
         '@type': 'ListItem',
         'position': 2,
         'name': 'คาเฟ่' + zone,
-        'item': base + '/reviews/?zone=' + encodeURIComponent(zone)
+        'item': base + '/cafe/' + zoneSlug_(zone) + '/'
       });
     }
     list.push({
@@ -3931,6 +4179,49 @@ var ZONE_SLUGS = {
   'จตุจักร': 'chatuchak',
   'บางนา': 'bang-na',
   'รัชดา': 'ratchada',
+  'สาทร': 'sathorn',
+  'สีลม': 'silom',
+  'พร้อมพงษ์': 'phrom-phong',
+  'เจริญกรุง': 'charoen-krung',
+  'เยาวราช': 'yaowarat',
+  'อ่อนนุช': 'on-nut',
+  'ลาดพร้าว': 'lat-phrao',
+  'รามคำแหง': 'ramkhamhaeng',
+  'สะพานควาย': 'saphan-khwai',
+  'ราชเทวี': 'ratchathewi',
+  'ดินแดง': 'din-daeng',
+  'ห้วยขวาง': 'huai-khwang',
+  'บางกะปิ': 'bang-kapi',
+  'บางเขน': 'bang-khen',
+  'ดอนเมือง': 'don-mueang',
+  'หลักสี่': 'lak-si',
+  'มีนบุรี': 'min-buri',
+  'หนองจอก': 'nong-chok',
+  'คลองสาน': 'khlong-san',
+  'ธนบุรี': 'thonburi',
+  'บางกอกน้อย': 'bangkok-noi',
+  'บางกอกใหญ่': 'bangkok-yai',
+  'ภาษีเจริญ': 'phasi-charoen',
+  'ตลิ่งชัน': 'taling-chan',
+  'บางแค': 'bang-khae',
+  'จอมทอง': 'chom-thong',
+  'บางขุนเทียน': 'bang-khun-thian',
+  'ราษฎร์บูรณะ': 'rat-burana',
+  'ทุ่งครุ': 'thung-khru',
+  'สวนหลวง': 'suan-luang',
+  'ประเวศ': 'prawet',
+  'คันนายาว': 'khan-na-yao',
+  'บึงกุ่ม': 'bueng-kum',
+  'วังทองหลาง': 'wang-thonglang',
+  'สายไหม': 'sai-mai',
+  'บางซื่อ': 'bang-sue',
+  'ดุสิต': 'dusit',
+  'ป้อมปราบ': 'pom-prap',
+  'สัมพันธวงศ์': 'samphanthawong',
+  'ปทุมวัน': 'pathum-wan',
+  'วัฒนา': 'watthana',
+  'คลองเตย': 'khlong-toei',
+  'ตลาดพลู': 'talat-phlu',
   'กรุงเทพฯ': 'bangkok'
 };
 
