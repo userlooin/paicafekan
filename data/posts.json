@@ -1,5 +1,28 @@
 [
   {
+    "slug": "latte-man-80491",
+    "name": "Latte Man",
+    "zone": "รัชดา",
+    "title": "Latte Man คาเฟ่รัชดา กาแฟดีบรรยากาศสงบเปิดรับยามเช้า",
+    "excerpt": "Latte Man คาเฟ่รัชดาที่พร้อมต้อนรับคอกาแฟตั้งแต่เช้าตรู่ในซอยโพธิ์ปั้น แวะพักจิบเครื่องดื่มสบาย ๆ หลีกหนีความวุ่นวายของเมืองหลวง",
+    "date": "2026-11-18",
+    "photo": "assets/img/posts/latte-man-80491-1.webp",
+    "photos": [
+      "assets/img/posts/latte-man-80491-1.webp",
+      "assets/img/posts/latte-man-80491-2.webp",
+      "assets/img/posts/latte-man-80491-3.webp",
+      "assets/img/posts/latte-man-80491-4.webp",
+      "assets/img/posts/latte-man-80491-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่รัชดา",
+      "#LatteMan",
+      "#คาเฟ่ดินแดง",
+      "#ร้านกาแฟกรุงเทพ",
+      "#คาเฟ่บรรยากาศดีกรุงเทพ"
+    ]
+  },
+  {
     "slug": "gatta-cafe-iconsiam-specialty-coffee-60756",
     "name": "GATTA CAfe (ICONSIAM) - Specialty Coffee",
     "zone": "บางรัก",

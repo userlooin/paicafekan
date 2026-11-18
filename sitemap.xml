@@ -11,6 +11,7 @@
   <url><loc>https://paicafekan.com/cafe/phra-nakhon/</loc><lastmod>2026-11-17</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/phra-khanong/</loc><lastmod>2026-11-18</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/phrom-phong/</loc><lastmod>2026-11-12</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://paicafekan.com/cafe/ratchada/</loc><lastmod>2026-11-18</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/siam/</loc><lastmod>2026-11-13</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/sathorn/</loc><lastmod>2026-11-17</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/silom/</loc><lastmod>2026-11-09</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
@@ -19,6 +20,15 @@
   <url><loc>https://paicafekan.com/cafe/charoen-krung/</loc><lastmod>2026-11-11</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/yaowarat/</loc><lastmod>2026-11-11</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/ekamai/</loc><lastmod>2026-11-06</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url>
+    <loc>https://paicafekan.com/posts/latte-man-80491/</loc>
+    <lastmod>2026-11-18</lastmod><changefreq>weekly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/latte-man-80491-1.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/latte-man-80491-2.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/latte-man-80491-3.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/latte-man-80491-4.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/latte-man-80491-5.webp</image:loc></image:image>
+  </url>
   <url>
     <loc>https://paicafekan.com/posts/gatta-cafe-iconsiam-specialty-coffee-60756/</loc>
     <lastmod>2026-11-18</lastmod><changefreq>weekly</changefreq><priority>0.8</priority>
