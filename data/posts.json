@@ -1,5 +1,28 @@
 [
   {
+    "slug": "samadool-95701",
+    "name": "Samadool",
+    "zone": "ทองหล่อ",
+    "title": "Samadool คาเฟ่ทองหล่อ เปิดแต่เช้า กาแฟดีพร้อมที่นั่งกลางแจ้ง",
+    "excerpt": "แวะ Samadool คาเฟ่ทองหล่อ ที่เปิดต้อนรับตั้งแต่เช้าตรู่ มี Wi-Fi และโซนนอกร้านให้นั่งชิลล์ คลิกอ่านรายละเอียดพิกัดและบรรยากาศได้เลย",
+    "date": "2026-11-20",
+    "photo": "assets/img/posts/samadool-95701-1.webp",
+    "photos": [
+      "assets/img/posts/samadool-95701-1.webp",
+      "assets/img/posts/samadool-95701-2.webp",
+      "assets/img/posts/samadool-95701-3.webp",
+      "assets/img/posts/samadool-95701-4.webp",
+      "assets/img/posts/samadool-95701-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่ทองหล่อ",
+      "#คาเฟ่เปิดเช้า",
+      "#ร้านกาแฟกรุงเทพ",
+      "#คาเฟ่สุขุมวิท",
+      "#Samadool"
+    ]
+  },
+  {
     "slug": "cafe-78705",
     "name": "ลัมบิยองซ์ คาเฟ่",
     "zone": "อโศก",
