@@ -1,5 +1,27 @@
 [
   {
+    "slug": "landhaus-bakery-98096",
+    "name": "Landhaus bakery",
+    "zone": "อารีย์",
+    "title": "Landhaus bakery อารีย์ คาเฟ่สไตล์เยอรมัน บรรยากาศอบอุ่น",
+    "excerpt": "คาเฟ่อารีย์ Landhaus bakery ให้บรรยากาศอบอุ่นและเบเกอรีสดใหม่ เหมาะสำหรับพักผ่อนหรือทำงานอ่านหนังสือ อย่าพลาด!",
+    "date": "2026-11-21",
+    "photo": "assets/img/posts/landhaus-bakery-98096-1.webp",
+    "photos": [
+      "assets/img/posts/landhaus-bakery-98096-1.webp",
+      "assets/img/posts/landhaus-bakery-98096-2.webp",
+      "assets/img/posts/landhaus-bakery-98096-3.webp",
+      "assets/img/posts/landhaus-bakery-98096-4.webp",
+      "assets/img/posts/landhaus-bakery-98096-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่อารีย์",
+      "#เบเกอรีเยอรมัน",
+      "#คาเฟ่บรรยากาศดีกรุงเทพ",
+      "#LandhausBakery"
+    ]
+  },
+  {
     "slug": "patom-organic-living-64926",
     "name": "Patom Organic Living",
     "zone": "ทองหล่อ",
