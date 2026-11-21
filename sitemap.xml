@@ -5,7 +5,7 @@
   <url><loc>https://paicafekan.com/cafe/</loc><lastmod>2026-11-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://paicafekan.com/about/</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://paicafekan.com/cafe/chatuchak/</loc><lastmod>2026-11-11</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://paicafekan.com/cafe/thonglor/</loc><lastmod>2026-11-20</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://paicafekan.com/cafe/thonglor/</loc><lastmod>2026-11-21</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/bang-rak/</loc><lastmod>2026-11-18</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/phaya-thai/</loc><lastmod>2026-11-04</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/phra-nakhon/</loc><lastmod>2026-11-17</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
@@ -20,6 +20,15 @@
   <url><loc>https://paicafekan.com/cafe/charoen-krung/</loc><lastmod>2026-11-11</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/yaowarat/</loc><lastmod>2026-11-11</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/ekamai/</loc><lastmod>2026-11-06</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url>
+    <loc>https://paicafekan.com/posts/patom-organic-living-64926/</loc>
+    <lastmod>2026-11-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/patom-organic-living-64926-1.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/patom-organic-living-64926-2.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/patom-organic-living-64926-3.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/patom-organic-living-64926-4.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/patom-organic-living-64926-5.webp</image:loc></image:image>
+  </url>
   <url>
     <loc>https://paicafekan.com/posts/ant-keeping-cafe-09902/</loc>
     <lastmod>2026-11-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority>
