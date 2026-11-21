@@ -1,5 +1,28 @@
 [
   {
+    "slug": "ant-keeping-cafe-09902",
+    "name": "Ant Keeping Cafe คนเลี้ยงมด",
+    "zone": "รัชดา",
+    "title": "Ant Keeping Cafe คาเฟ่มดน่าตื่นเต้นรัชดา บรรยากาศธรรมชาติและเมนูอร่อย",
+    "excerpt": "บรรยากาศธรรมชาติพร้อมมดเลี้ยงในร้านทำให้ Ant Keeping Cafe เป็นที่ต้องไปลองในรัชดา อย่าพลาดเมนูพิเศษที่ทำให้คุณอยากกลับมาอีก!",
+    "date": "2026-11-21",
+    "photo": "assets/img/posts/ant-keeping-cafe-09902-1.webp",
+    "photos": [
+      "assets/img/posts/ant-keeping-cafe-09902-1.webp",
+      "assets/img/posts/ant-keeping-cafe-09902-2.webp",
+      "assets/img/posts/ant-keeping-cafe-09902-3.webp",
+      "assets/img/posts/ant-keeping-cafe-09902-4.webp",
+      "assets/img/posts/ant-keeping-cafe-09902-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่รัชดา",
+      "#คาเฟ่ธรรมชาติ",
+      "#มดเลี้ยง",
+      "#กาแฟกรุงเทพ",
+      "#บรรยากาศดี"
+    ]
+  },
+  {
     "slug": "samadool-95701",
     "name": "Samadool",
     "zone": "ทองหล่อ",
