@@ -1,5 +1,28 @@
 [
   {
+    "slug": "cafe-73608",
+    "name": "นมโจ",
+    "zone": "พระนคร",
+    "title": "นมโจ คาเฟ่บรรยากาศมินิมัลย่านพระนคร เมนูนมสดหอมกรุ่น",
+    "excerpt": "บรรยากาศมินิมัลและนมสดหอมกรุ่นที่นมโจทำให้คุณอยากหยุดพักและลิ้มลองในย่านพระนคร",
+    "date": "2026-11-22",
+    "photo": "assets/img/posts/cafe-73608-1.webp",
+    "photos": [
+      "assets/img/posts/cafe-73608-1.webp",
+      "assets/img/posts/cafe-73608-2.webp",
+      "assets/img/posts/cafe-73608-3.webp",
+      "assets/img/posts/cafe-73608-4.webp",
+      "assets/img/posts/cafe-73608-5.webp"
+    ],
+    "tags": [
+      "#นมโจ",
+      "#คาเฟ่พระนคร",
+      "#มินิมัลคาเฟ่",
+      "#กรุงเทพกินดี",
+      "#คาเฟ่บรรยากาศดี"
+    ]
+  },
+  {
     "slug": "see-you-latte-21801",
     "name": "See you latte",
     "zone": "จตุจักร",
