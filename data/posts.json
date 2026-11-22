@@ -1,5 +1,28 @@
 [
   {
+    "slug": "citylight-coffee-64705",
+    "name": "CityLight Coffee",
+    "zone": "อโศก",
+    "title": "CityLight Coffee คาเฟ่บรรยากาศโมเดิร์นอโศก ที่ทำงานสบาย",
+    "excerpt": "CityLight Coffee บนซอยสุขุมวิท 4 ให้บรรยากาศโมเดิร์นและเมนูกาแฟคุณภาพ เหมาะกับคนทำงานและคนรักคาเฟ่ อยากรู้เพิ่มคลิกเลย!",
+    "date": "2026-11-22",
+    "photo": "assets/img/posts/citylight-coffee-64705-1.webp",
+    "photos": [
+      "assets/img/posts/citylight-coffee-64705-1.webp",
+      "assets/img/posts/citylight-coffee-64705-2.webp",
+      "assets/img/posts/citylight-coffee-64705-3.webp",
+      "assets/img/posts/citylight-coffee-64705-4.webp",
+      "assets/img/posts/citylight-coffee-64705-5.webp"
+    ],
+    "tags": [
+      "#อโศก",
+      "#คาเฟ่อโศก",
+      "#คาเฟ่บรรยากาศดีกรุงเทพ",
+      "#CityLightCoffee",
+      "#กาแฟคุณภาพ"
+    ]
+  },
+  {
     "slug": "landhaus-bakery-98096",
     "name": "Landhaus bakery",
     "zone": "อารีย์",
