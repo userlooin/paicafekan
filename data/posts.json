@@ -1,5 +1,28 @@
 [
   {
+    "slug": "see-you-latte-21801",
+    "name": "See you latte",
+    "zone": "จตุจักร",
+    "title": "See you latte คาเฟ่ลานกว้างจตุจักร เมนูลาเต้เข้มข้นที่ต้องลอง",
+    "excerpt": "คาเฟ่จตุจักร See you latte มีบรรยากาศเปิดโล่งและลาเต้เข้มข้น เหมาะสำหรับทำงานหรือชิลกับเพื่อน อยากรู้ไหม?",
+    "date": "2026-11-22",
+    "photo": "assets/img/posts/see-you-latte-21801-1.webp",
+    "photos": [
+      "assets/img/posts/see-you-latte-21801-1.webp",
+      "assets/img/posts/see-you-latte-21801-2.webp",
+      "assets/img/posts/see-you-latte-21801-3.webp",
+      "assets/img/posts/see-you-latte-21801-4.webp",
+      "assets/img/posts/see-you-latte-21801-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่จตุจักร",
+      "#SeeYouLatte",
+      "#บรรยากาศดี",
+      "#ละมุนกาแฟ",
+      "#จตุจักร"
+    ]
+  },
+  {
     "slug": "citylight-coffee-64705",
     "name": "CityLight Coffee",
     "zone": "อโศก",
