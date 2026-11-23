@@ -5329,7 +5329,7 @@ function seedWeeklyShops(limit) {
     }
 
     // ADMIN: dry run
-    if (p.getProperty('SEED_DRY_RUN') === '1') {
+    if (props.getProperty('SEED_DRY_RUN') === '1') {
       log_('INFO', '-', '-', 'weekly seed DRY RUN: ' + picks.length);
       return { ok: true, dryRun: true, added: 0, wouldAdd: picks.length, shops: picks };
     }
