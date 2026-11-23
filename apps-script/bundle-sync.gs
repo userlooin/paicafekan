@@ -5742,7 +5742,7 @@ function reviewsRead_(slug) {
 /** รับ/ตรวจ/บันทึกรีวิวใหม่ */
 function reviewsSubmit_(p) {
   var lock = LockService.getScriptLock();
-  if (!lock.waitLock(3000)) throw new Error('ขณะนี้มีคนส่งรีวิวพร้อมกัน กรุณาลองใหม่อีกครู่');
+  if (!lock.tryLock(3000)) throw new Error('ขณะนี้มีคนส่งรีวิวพร้อมกัน กรุณาลองใหม่อีกครู่');
   try {
     var cfg = getConfig_();
     var slug = String(p.slug || '').trim();
