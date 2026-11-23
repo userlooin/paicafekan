@@ -49,6 +49,8 @@ var DEFAULTS = {
 };
 
 /** เมนูใน Google Sheets */
+
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('☕ Cafe Bot')
@@ -3384,6 +3386,7 @@ var Site = {
       tagHtml ? '      <div class="tags">\n        ' + tagHtml + '\n      </div>' : '',
       '    </aside>',
       '  </div>',
+      reviewsHtml,
       relatedHtml,
       '</main>',
       Site.footer_(),
