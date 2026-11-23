@@ -70,6 +70,8 @@ function onOpen() {
     .addItem('สถานะ AI (โควตา/ค่ายสำรอง)', 'showAiStatus')
     .addSeparator()
     .addItem('โพสต์ที่รออนุมัติทั้งหมด (ข้ามการกด ok)', 'publishAllPending')
+    .addSeparator()
+    .addItem('อนุมัติรีวิวที่รอทั้งหมด', 'approvePendingReviews')
     .addToUi();
 }
 
@@ -715,7 +717,8 @@ function getConfig_() {
     ghRepo: p.getProperty('GITHUB_REPO') || 'paicafekan',
     ghBranch: p.getProperty('GITHUB_BRANCH') || 'main',
 
-    siteBase: p.getProperty('SITE_BASE_URL') || 'https://paicafekan.com'
+    siteBase: p.getProperty('SITE_BASE_URL') || 'https://paicafekan.com',
+    reviewWebAppUrl: p.getProperty('REVIEW_WEBAPP_URL') || ''
   };
 }
 
@@ -2584,6 +2587,12 @@ var Line = {
  * ตั้ง URL เป็น https://script.google.com/macros/s/<deployId>/exec?t=<LINE_WEBHOOK_TOKEN>
  */
 function doPost(e) {
+  var q0 = (e && e.parameter) || {};
+  // ฟอร์มรีวิวจากหน้าโพสต์ใช้ doPost ตัวเดียวกับ LINE webhook
+  if (q0.review === '1' || (q0.slug && q0.comment)) {
+    return reviewsFormResponse_(q0);
+  }
+
   var reply = null;
   try {
     var cfg = getConfig_();
@@ -2653,6 +2662,7 @@ var ADMIN_FUNCTIONS = [
   'testOsm',
   'listDeployInfo',
   'publishAllPending',
+  'approvePendingReviews',
   'resendPending',
   'republishSite',
   'refreshPostPages',
@@ -2674,6 +2684,7 @@ var ADMIN_FUNCTIONS = [
 function doGet(e) {
   var cfg = getConfig_();
   var p = (e && e.parameter) || {};
+  if (p.review === '1') return reviewsJsonp_(p);
   if (!cfg.lineWebhookToken || p.t !== cfg.lineWebhookToken) {
     return ContentService.createTextOutput('cafe bot');
   }
@@ -3303,6 +3314,38 @@ var Site = {
       '</section>'
     ].join('\n') : '';
 
+    // รีวิวจากผู้อ่าน — ใช้ Web App ของสคริปต์นี้เอง (ฟรี) เป็นทั้งช่องรับและช่องอ่าน
+    var reviewEndpoint = String(cfg.reviewWebAppUrl || '').trim();
+    var reviewsHtml = '';
+    if (reviewEndpoint) {
+      var endpoint = esc_(reviewEndpoint);
+      reviewsHtml = [
+        '<section class="reviews-section" data-slug="' + esc_(item.slug) + '" data-endpoint="' + endpoint + '">',
+        '  <div class="section-head"><div><h2>รีวิวจากคนที่ไปมาแล้ว</h2><p>แชร์ความประทับใจแล้วให้ดาว 1–5</p></div></div>',
+        '  <div id="review-summary" class="review-summary" aria-live="polite"></div>',
+        '  <div id="review-list" class="review-list"><p class="review-muted">กำลังโหลดรีวิว…</p></div>',
+        '  <form id="review-form" class="review-form" method="post" target="review-frame" action="' + endpoint + '">',
+        '    <input type="hidden" name="slug" value="' + esc_(item.slug) + '">',
+        '    <input type="hidden" name="shop" value="' + esc_(item.name) + '">',
+        '    <div class="star-input" role="radiogroup" aria-label="ให้คะแนน 1 ถึง 5 ดาว">',
+        '      <button type="button" data-star="1" aria-label="1 ดาว">★</button>',
+        '      <button type="button" data-star="2" aria-label="2 ดาว">★</button>',
+        '      <button type="button" data-star="3" aria-label="3 ดาว">★</button>',
+        '      <button type="button" data-star="4" aria-label="4 ดาว">★</button>',
+        '      <button type="button" data-star="5" aria-label="5 ดาว">★</button>',
+        '      <span class="star-label">แตะเพื่อให้ดาว</span>',
+        '    </div>',
+        '    <input type="text" name="name" maxlength="40" required placeholder="ชื่อของคุณ">',
+        '    <textarea name="comment" maxlength="500" required placeholder="เล่าประสบการณ์ที่ร้าน เช่น กาแฟ บรรยากาศ การบริการ"></textarea>',
+        '    <input type="text" name="website" class="hp" autocomplete="off" tabindex="-1" aria-hidden="true">',
+        '    <button type="submit">ส่งรีวิว</button>',
+        '    <p id="review-note" class="review-note">รีวิวจะแสดงหลังผ่านการตรวจสอบสั้น ๆ ครับ</p>',
+        '  </form>',
+        '  <iframe name="review-frame" id="review-frame" title="ส่งรีวิว" style="display:none"></iframe>',
+        '</section>'
+      ].join('\n');
+    }
+
     var credit = photo
       ? '<p class="photo-credit">' + (item.photoManual ? 'รูปจากทางร้าน' : 'รูปจากเว็บไซต์ของร้าน') + '</p>'
       : '';
@@ -3345,6 +3388,7 @@ var Site = {
       '</main>',
       Site.footer_(),
       '<script src="/assets/views.js" defer></script>',
+      '<script src="/assets/comments.js" defer></script>',
       '</body>',
       '</html>'
     ].join('\n');
@@ -5595,3 +5639,200 @@ function firstRunSetup() {
   checkSetup();
 }
 
+
+/**
+ * Reviews: ระบบรีวิวจากคนที่ไปร้านมาแล้ว (ใช้ของฟรีที่มีอยู่แล้ว)
+ * - เก็บในแท็บ "Reviews" ของสเปรดชีตหลัก
+ * - เรียกผ่าน doGet/doPost เดิมด้วย ?review=1
+ */
+
+var REVIEW_SHEET_NAME = 'Reviews';
+var REVIEW_HEADERS = ['Timestamp', 'Slug', 'ร้าน', 'ชื่อผู้รีวิว', 'ดาว', 'ข้อความ', 'สถานะ', 'แหล่ง'];
+var REVIEW_WINDOW_MS = 10 * 60 * 1000;
+var REVIEW_MAX_PER_WINDOW = 4;
+
+/** web app: อ่านรีวิวแบบ JSONP — เรียกผ่าน doGet เดิมด้วย ?review=1 */
+function reviewsJsonp_(q) {
+  q = q || {};
+  var cb = String(q.callback || 'cb');
+  if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(cb)) cb = 'cb';
+  var data;
+  try {
+    data = reviewsRead_(String(q.slug || ''));
+  } catch (err) {
+    data = { ok: false, reviews: [], count: 0, average: 0,
+      error: String(err && err.message ? err.message : err).slice(0, 160) };
+  }
+  var out = ContentService.createTextOutput(cb + '(' + JSON.stringify(data) + ');');
+  out.setMimeType(ContentService.MimeType.JAVASCRIPT);
+  return out;
+}
+
+/** web app: รับรีวิวจากฟอร์มในหน้าโพสต์ — เรียกผ่าน doPost เดิม */
+function reviewsFormResponse_(q) {
+  var result;
+  try {
+    result = reviewsSubmit_(q || {});
+  } catch (err) {
+    result = { ok: false, message: String(err && err.message ? err.message : err).slice(0, 180) };
+  }
+  var msg = { type: 'paicafekan-review', result: result };
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>' +
+    '<script>window.parent.postMessage(' + JSON.stringify(msg) + ', "*");</script>' +
+    '</body></html>';
+  return HtmlService.createHtmlOutput(html);
+}
+
+/** แท็บรีวิว (สร้างอัตโนมัติครั้งแรกที่ใช้งาน) */
+function reviewsSheet_() {
+  var ss = getSpreadsheet_();
+  var sh = ss.getSheetByName(REVIEW_SHEET_NAME);
+  if (!sh) {
+    sh = ss.insertSheet(REVIEW_SHEET_NAME);
+    sh.appendRow(REVIEW_HEADERS);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, REVIEW_HEADERS.length)
+      .setFontWeight('bold')
+      .setBackground('#e2f0fb')
+      .setFontColor('#0f2433');
+    sh.setColumnWidth(1, 175).setColumnWidth(2, 230).setColumnWidth(3, 190)
+      .setColumnWidth(4, 150).setColumnWidth(5, 70).setColumnWidth(6, 460)
+      .setColumnWidth(7, 100).setColumnWidth(8, 90);
+  }
+  return sh;
+}
+
+/** อ่านรีวิวที่อนุมัติแล้วของ slug นั้น ๆ */
+function reviewsRead_(slug) {
+  slug = String(slug || '').trim();
+  if (!slug) return { ok: false, reviews: [], count: 0, average: 0 };
+  var sh = reviewsSheet_();
+  var last = sh.getLastRow();
+  var rows = last >= 2 ? sh.getRange(2, 1, last - 1, REVIEW_HEADERS.length).getValues() : [];
+  var reviews = [];
+
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (String(r[1] || '') !== slug) continue;
+    if (String(r[6] || '').toLowerCase() !== 'approved') continue;
+    var ts = r[0];
+    reviews.push({
+      name: String(r[3] || ''),
+      rating: Math.max(1, Math.min(5, Number(r[4]) || 0)),
+      text: String(r[5] || ''),
+      date: (ts instanceof Date) ? ts.toISOString() : String(ts || ''),
+      shop: String(r[2] || '')
+    });
+  }
+
+  reviews.reverse();
+  var sum = 0;
+  reviews.forEach(function (x) { sum += x.rating; });
+  return {
+    ok: true,
+    reviews: reviews,
+    count: reviews.length,
+    average: reviews.length ? Math.round((sum / reviews.length) * 10) / 10 : 0
+  };
+}
+
+/** รับ/ตรวจ/บันทึกรีวิวใหม่ */
+function reviewsSubmit_(p) {
+  var lock = LockService.getScriptLock();
+  if (!lock.waitLock(3000)) throw new Error('ขณะนี้มีคนส่งรีวิวพร้อมกัน กรุณาลองใหม่อีกครู่');
+  try {
+    var cfg = getConfig_();
+    var slug = String(p.slug || '').trim();
+    var name = String(p.name || '').trim().replace(/\s+/g, ' ');
+    var text = String(p.comment || '').replace(/\r/g, '').trim();
+    var rating = parseInt(p.rating, 10);
+    var honeypot = String(p.website || '').trim();
+
+    // ช่องกับดักสแปม: ถ้ามีคนกรอกให้ตอบเหมือนสำเร็จ แต่ไม่บันทึก
+    if (honeypot) return { ok: true, message: 'ขอบคุณครับ รีวิวอยู่ในคิวตรวจสอบ' };
+
+    var manifest = [];
+    try { manifest = Publish.loadManifest_(cfg); } catch (e) {}
+    var found = null;
+    for (var i = 0; i < manifest.length; i++) {
+      if (manifest[i].slug === slug) { found = manifest[i]; break; }
+    }
+    if (!found) throw new Error('ไม่พบโพสต์นี้');
+
+    if (name.length < 2 || name.length > 40) throw new Error('กรุณาใส่ชื่อ 2–40 ตัวอักษร');
+    if (text.length < 5 || text.length > 500) throw new Error('ข้อความควรอยู่ระหว่าง 5–500 ตัวอักษร');
+    if (!(rating >= 1 && rating <= 5)) throw new Error('กรุณาเลือกดาว 1–5');
+    if (/(https?:\/\/|www\.)/i.test(text)) throw new Error('ไม่รับลิงก์ในรีวิว');
+    if (text.split('\n').length > 6) throw new Error('ข้อความยาวเกินไป');
+    if (/(.)\1{9,}/.test(text)) throw new Error('ข้อความมีอักษรซ้ำเกินไป');
+
+    // กันสแปมแบบง่าย: จำกัดจำนวนส่งต่อช่วงเวลา
+    var props = PropertiesService.getScriptProperties();
+    var now = Date.now();
+    var winStart = Number(props.getProperty('REVIEW_WINDOW_START') || 0);
+    var winCount = Number(props.getProperty('REVIEW_WINDOW_COUNT') || 0);
+    if (!winStart || (now - winStart) > REVIEW_WINDOW_MS) {
+      winStart = now;
+      winCount = 0;
+    }
+    if (winCount >= REVIEW_MAX_PER_WINDOW) {
+      throw new Error('ขณะนี้มีรีวิวเข้ามาหลายชิ้น กรุณาลองใหม่ในอีกสักครู่');
+    }
+    props.setProperty('REVIEW_WINDOW_START', String(winStart));
+    props.setProperty('REVIEW_WINDOW_COUNT', String(winCount + 1));
+
+    var sh = reviewsSheet_();
+    var lastRow = sh.getLastRow();
+    if (lastRow >= 2) {
+      var start = Math.max(2, lastRow - 9);
+      var recent = sh.getRange(start, 1, lastRow - start + 1, REVIEW_HEADERS.length).getValues();
+      for (var j = 0; j < recent.length; j++) {
+        if (String(recent[j][1] || '') === slug &&
+            String(recent[j][3] || '') === name &&
+            String(recent[j][5] || '') === text) {
+          return { ok: true, message: 'ขอบคุณครับ รีวิวนี้ได้รับแล้ว' };
+        }
+      }
+    }
+
+    var auto = props.getProperty('REVIEWS_AUTO_APPROVE') === '1';
+    sh.appendRow([
+      new Date(),
+      slug,
+      found.name || '',
+      name,
+      rating,
+      text,
+      auto ? 'approved' : 'pending',
+      'web'
+    ]);
+
+    return {
+      ok: true,
+      message: auto
+        ? 'ขอบคุณครับ รีวิวแสดงบนหน้าเว็บแล้ว'
+        : 'ขอบคุณครับ รีวิวอยู่ในคิวตรวจสอบสั้น ๆ'
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** ADMIN: อนุมัติรีวิวที่รอทั้งหมด */
+function approvePendingReviews() {
+  var sh = reviewsSheet_();
+  var last = sh.getLastRow();
+  if (last < 2) return { ok: true, approved: 0 };
+  var statuses = sh.getRange(2, 7, last - 1, 1);
+  var vals = statuses.getValues();
+  var n = 0;
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][0] || '').toLowerCase() === 'pending') {
+      vals[i][0] = 'approved';
+      n++;
+    }
+  }
+  if (n) statuses.setValues(vals);
+  log_('INFO', 'REVIEWS', '-', 'อนุมัติรีวิว ' + n + ' รายการ');
+  return { ok: true, approved: n };
+}
