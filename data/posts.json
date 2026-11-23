@@ -1,5 +1,28 @@
 [
   {
+    "slug": "black-cat-cafe-91105",
+    "name": "Black Cat Cafe",
+    "zone": "อารีย์",
+    "title": "Black Cat Cafe คาเฟ่บรรยากาศสบายย่านอารีย์ เมนูเค้กช็อกโกแลตละมุน",
+    "excerpt": "Black Cat Cafe ที่อารีย์บรรยากาศสบาย เหมาะกับคนที่ชอบนั่งจิบเครื่องดื่มพร้อมเค้กอร่อย อยากไปลองไหม?",
+    "date": "2026-11-23",
+    "photo": "assets/img/posts/black-cat-cafe-91105-1.webp",
+    "photos": [
+      "assets/img/posts/black-cat-cafe-91105-1.webp",
+      "assets/img/posts/black-cat-cafe-91105-2.webp",
+      "assets/img/posts/black-cat-cafe-91105-3.webp",
+      "assets/img/posts/black-cat-cafe-91105-4.webp",
+      "assets/img/posts/black-cat-cafe-91105-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่อารีย์",
+      "#BlackCatCafe",
+      "#คาเฟ่บรรยากาศดีกรุงเทพ",
+      "#อารีย์",
+      "#เค้กช็อกโกแลต"
+    ]
+  },
+  {
     "slug": "onion-24213",
     "name": "Onion",
     "zone": "เอกมัย",
