@@ -1,5 +1,28 @@
 [
   {
+    "slug": "mahasan-cafe-74932",
+    "name": "Mahasan Cafe",
+    "zone": "จตุจักร",
+    "title": "Mahasan Cafe คาเฟ่เมนูขนมอร่อยย่านจตุจักร ที่บรรยากาศสบายใจ",
+    "excerpt": "คาเฟ่จตุจักร Mahasan Cafe มีบรรยากาศมินิมัลพร้อมเมนูของหวานที่ทำให้คุณอยากหยุดเวลา ลองอ่านแล้วคุณจะอยากไปสัมผัสเอง",
+    "date": "2026-11-24",
+    "photo": "assets/img/posts/mahasan-cafe-74932-1.webp",
+    "photos": [
+      "assets/img/posts/mahasan-cafe-74932-1.webp",
+      "assets/img/posts/mahasan-cafe-74932-2.webp",
+      "assets/img/posts/mahasan-cafe-74932-3.webp",
+      "assets/img/posts/mahasan-cafe-74932-4.webp",
+      "assets/img/posts/mahasan-cafe-74932-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่จตุจักร",
+      "#MahasanCafe",
+      "#คาเฟ่บรรยากาศดี",
+      "#จตุจักร",
+      "#กาแฟกรุงเทพ"
+    ]
+  },
+  {
     "slug": "black-cat-cafe-91105",
     "name": "Black Cat Cafe",
     "zone": "อารีย์",
