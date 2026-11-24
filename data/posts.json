@@ -1,5 +1,28 @@
 [
   {
+    "slug": "koko-drip-37583",
+    "name": "Koko Drip",
+    "zone": "จตุจักร",
+    "title": "Koko Drip คาเฟ่บรรยากาศสบายย่านจตุจักร ที่เมนูดริปกาแฟอร่อย",
+    "excerpt": "คาเฟ่จตุจักร Koko Drip มีบรรยากาศสบายและดริปกาแฟหอมอร่อย เหมาะกับคนทำงานและพักผ่อน อยากรู้เพิ่มเติมคลิกเลย!",
+    "date": "2026-11-24",
+    "photo": "assets/img/posts/koko-drip-37583-1.webp",
+    "photos": [
+      "assets/img/posts/koko-drip-37583-1.webp",
+      "assets/img/posts/koko-drip-37583-2.webp",
+      "assets/img/posts/koko-drip-37583-3.webp",
+      "assets/img/posts/koko-drip-37583-4.webp",
+      "assets/img/posts/koko-drip-37583-5.webp"
+    ],
+    "tags": [
+      "#จตุจักร",
+      "#คาเฟ่บรรยากาศดี",
+      "#ดริปกาแฟ",
+      "#กาแฟคุณภาพ",
+      "#พักผ่อนทำงาน"
+    ]
+  },
+  {
     "slug": "a-clay-cafe-65921",
     "name": "A Clay Cafe",
     "zone": "สาทร",
