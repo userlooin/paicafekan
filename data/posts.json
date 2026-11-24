@@ -1,5 +1,28 @@
 [
   {
+    "slug": "a-clay-cafe-65921",
+    "name": "A Clay Cafe",
+    "zone": "สาทร",
+    "title": "A Clay Cafe คาเฟ่คลายเครียดย่านสาทร บรรยากาศดินเผาอุ่นใจ",
+    "excerpt": "บรรยากาศดินเผาอบอุ่นและเมนูศิลปะของ A Clay Cafe ทำให้คุณอยากหยุดพักที่คาเฟ่สาทรนี้เลย อยากรู้ไหมว่ามีอะไรพิเศษ?",
+    "date": "2026-11-24",
+    "photo": "assets/img/posts/a-clay-cafe-65921-1.webp",
+    "photos": [
+      "assets/img/posts/a-clay-cafe-65921-1.webp",
+      "assets/img/posts/a-clay-cafe-65921-2.webp",
+      "assets/img/posts/a-clay-cafe-65921-3.webp",
+      "assets/img/posts/a-clay-cafe-65921-4.webp",
+      "assets/img/posts/a-clay-cafe-65921-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่สาทร",
+      "#AClayCafe",
+      "#บรรยากาศดินเผา",
+      "#กรุงเทพ",
+      "#ศิลปะกาแฟ"
+    ]
+  },
+  {
     "slug": "mahasan-cafe-74932",
     "name": "Mahasan Cafe",
     "zone": "จตุจักร",
