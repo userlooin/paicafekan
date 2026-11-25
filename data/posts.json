@@ -1,5 +1,28 @@
 [
   {
+    "slug": "unbranded-cafe-12489",
+    "name": "Unbranded Cafe",
+    "zone": "พระนคร",
+    "title": "Unbranded Cafe คาเฟ่มินิมัลย่านพระนคร มี Wi‑Fi ทำงานสบาย",
+    "excerpt": "คาเฟ่มินิมัลในพระนครพร้อม Wi‑Fi เร็วและปลั๊กไฟหลายจุด เหมาะทำงานหรืออ่านหนังสือ อยากรู้ไหม?",
+    "date": "2026-11-25",
+    "photo": "assets/img/posts/unbranded-cafe-12489-1.webp",
+    "photos": [
+      "assets/img/posts/unbranded-cafe-12489-1.webp",
+      "assets/img/posts/unbranded-cafe-12489-2.webp",
+      "assets/img/posts/unbranded-cafe-12489-3.webp",
+      "assets/img/posts/unbranded-cafe-12489-4.webp",
+      "assets/img/posts/unbranded-cafe-12489-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่พระนคร",
+      "#คาเฟ่มินิมัล",
+      "#WiFiดี",
+      "#ทำงานคาเฟ่",
+      "#UnbrandedCafe"
+    ]
+  },
+  {
     "slug": "cafe-63869",
     "name": "จารีคาเฟ่",
     "zone": "บางนา",
