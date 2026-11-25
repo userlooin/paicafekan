@@ -1,5 +1,28 @@
 [
   {
+    "slug": "little-ghost-01488",
+    "name": "Little Ghost",
+    "zone": "ทองหล่อ",
+    "title": "Little Ghost คาเฟ่ทองหล่อบรรยากาศลึกลับ เมนูเค้กช็อกโกแลตหอม",
+    "excerpt": "บรรยากาศลึกลับของ Little Ghost ที่ทองหล่อพร้อมเมนูเค้กช็อกโกแลตหอม ทำให้คุณอยากหยุดพักและลองชิมกันเลย",
+    "date": "2026-11-25",
+    "photo": "assets/img/posts/little-ghost-01488-1.webp",
+    "photos": [
+      "assets/img/posts/little-ghost-01488-1.webp",
+      "assets/img/posts/little-ghost-01488-2.webp",
+      "assets/img/posts/little-ghost-01488-3.webp",
+      "assets/img/posts/little-ghost-01488-4.webp",
+      "assets/img/posts/little-ghost-01488-5.webp"
+    ],
+    "tags": [
+      "#ทองหล่อ",
+      "#คาเฟ่ลิตเติลโกลว์",
+      "#บรรยากาศลึกลับ",
+      "#เค้กช็อกโกแลต",
+      "#คาเฟ่บรรยากาศดีกรุงเทพ"
+    ]
+  },
+  {
     "slug": "koko-drip-37583",
     "name": "Koko Drip",
     "zone": "จตุจักร",
