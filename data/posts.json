@@ -1,5 +1,28 @@
 [
   {
+    "slug": "cafe-63869",
+    "name": "จารีคาเฟ่",
+    "zone": "บางนา",
+    "title": "จารีคาเฟ่ คาเฟ่บรรยากาศญี่ปุ่นบางนา เมนูชาและกาแฟอร่อย",
+    "excerpt": "บรรยากาศญี่ปุ่นสบาย ๆ กับเมนูชาและกาแฟหลากหลายที่จารีคาเฟ่ในบางนา ทำให้คุณอยากหยุดพักและลิ้มลอง",
+    "date": "2026-11-25",
+    "photo": "assets/img/posts/cafe-63869-1.webp",
+    "photos": [
+      "assets/img/posts/cafe-63869-1.webp",
+      "assets/img/posts/cafe-63869-2.webp",
+      "assets/img/posts/cafe-63869-3.webp",
+      "assets/img/posts/cafe-63869-4.webp",
+      "assets/img/posts/cafe-63869-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่บางนา",
+      "#จารีคาเฟ่",
+      "#คาเฟ่ญี่ปุ่น",
+      "#บรรยากาศดีกรุงเทพ",
+      "#WiFiคาเฟ่"
+    ]
+  },
+  {
     "slug": "little-ghost-01488",
     "name": "Little Ghost",
     "zone": "ทองหล่อ",
