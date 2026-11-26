@@ -1,5 +1,28 @@
 [
   {
+    "slug": "cafe-94063",
+    "name": "พระโขนง นมสด",
+    "zone": "พระโขนง",
+    "title": "พระโขนง นมสด คาเฟ่บรรยากาศดีกลางพระโขนง นมสดหอมกรุ่น",
+    "excerpt": "คาเฟ่พระโขนงที่ให้บรรยากาศสบายและนมสดหอมกรุ่น เหนือกว่าแค่กาแฟธรรมดา—อยากรู้ไหม?",
+    "date": "2026-11-26",
+    "photo": "assets/img/posts/cafe-94063-1.webp",
+    "photos": [
+      "assets/img/posts/cafe-94063-1.webp",
+      "assets/img/posts/cafe-94063-2.webp",
+      "assets/img/posts/cafe-94063-3.webp",
+      "assets/img/posts/cafe-94063-4.webp",
+      "assets/img/posts/cafe-94063-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่พระโขนง",
+      "#นมสด",
+      "#คาเฟ่บรรยากาศดี",
+      "#พระโขง",
+      "#BangkokCafe"
+    ]
+  },
+  {
     "slug": "unbranded-cafe-12489",
     "name": "Unbranded Cafe",
     "zone": "พระนคร",
