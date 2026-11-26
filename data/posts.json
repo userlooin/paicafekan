@@ -1,5 +1,27 @@
 [
   {
+    "slug": "royal-project-coffe-shop-35090",
+    "name": "Royal project coffe shop",
+    "zone": "จตุจักร",
+    "title": "Royal project shop จตุจักร คาเฟ่บรรยากาศร่มรื่นเมนูเค้กอร่อย",
+    "excerpt": "คาเฟ่จตุจักร Royal project shop มีบรรยากาศร่มรื่นและเค้กอร่อย เหมาะกับการพักผ่อนหรือทำงาน อ่านต่อเพื่อรู้ว่าควรไปลองหรือไม่",
+    "date": "2026-11-26",
+    "photo": "assets/img/posts/royal-project-coffe-shop-35090-1.webp",
+    "photos": [
+      "assets/img/posts/royal-project-coffe-shop-35090-1.webp",
+      "assets/img/posts/royal-project-coffe-shop-35090-2.webp",
+      "assets/img/posts/royal-project-coffe-shop-35090-3.webp",
+      "assets/img/posts/royal-project-coffe-shop-35090-4.webp",
+      "assets/img/posts/royal-project-coffe-shop-35090-5.webp"
+    ],
+    "tags": [
+      "#คาเฟ่จตุจักร",
+      "#บรรยากาศร่มรื่น",
+      "#เค้กอร่อย",
+      "#RoyalProjectCafe"
+    ]
+  },
+  {
     "slug": "cafe-94063",
     "name": "พระโขนง นมสด",
     "zone": "พระโขนง",
