@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-  <url><loc>https://paicafekan.com/</loc><lastmod>2026-11-26</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>
-  <url><loc>https://paicafekan.com/reviews/</loc><lastmod>2026-11-26</lastmod><changefreq>daily</changefreq><priority>0.9</priority></url>
-  <url><loc>https://paicafekan.com/cafe/</loc><lastmod>2026-11-26</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://paicafekan.com/</loc><lastmod>2026-11-27</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://paicafekan.com/reviews/</loc><lastmod>2026-11-27</lastmod><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://paicafekan.com/cafe/</loc><lastmod>2026-11-27</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://paicafekan.com/about/</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://paicafekan.com/cafe/chatuchak/</loc><lastmod>2026-11-26</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/thonglor/</loc><lastmod>2026-11-25</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/bang-na/</loc><lastmod>2026-11-25</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://paicafekan.com/cafe/zone-62444/</loc><lastmod>2026-11-27</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/bang-rak/</loc><lastmod>2026-11-18</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/phaya-thai/</loc><lastmod>2026-11-04</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/phra-nakhon/</loc><lastmod>2026-11-25</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
@@ -21,6 +22,15 @@
   <url><loc>https://paicafekan.com/cafe/charoen-krung/</loc><lastmod>2026-11-11</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/yaowarat/</loc><lastmod>2026-11-11</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://paicafekan.com/cafe/ekamai/</loc><lastmod>2026-11-23</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url>
+    <loc>https://paicafekan.com/posts/hiddenwoods-cafe-58292/</loc>
+    <lastmod>2026-11-27</lastmod><changefreq>weekly</changefreq><priority>0.8</priority>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/hiddenwoods-cafe-58292-1.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/hiddenwoods-cafe-58292-2.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/hiddenwoods-cafe-58292-3.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/hiddenwoods-cafe-58292-4.webp</image:loc></image:image>
+    <image:image><image:loc>https://paicafekan.com/assets/img/posts/hiddenwoods-cafe-58292-5.webp</image:loc></image:image>
+  </url>
   <url>
     <loc>https://paicafekan.com/posts/aribica-specialty-coffee-sahakorn-branch-67294/</loc>
     <lastmod>2026-11-26</lastmod><changefreq>weekly</changefreq><priority>0.8</priority>

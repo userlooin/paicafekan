@@ -1,5 +1,28 @@
 [
   {
+    "slug": "hiddenwoods-cafe-58292",
+    "name": "Hiddenwoods Cafe",
+    "zone": "บางน้ำผึ้ง",
+    "title": "Hiddenwoods Cafe คาเฟ่บรรยากาศธรรมชาติย่านบางน้ำผึ้งเมนูเค้กนุ่มละมุน",
+    "excerpt": "บรรยากาศธรรมชาติและเค้กนุ่มละมุนของ Hiddenwoods Cafe ทำให้คุณอยากหยุดพักในคาเฟ่บางน้ำผึ้งนี้ทันที",
+    "date": "2026-11-27",
+    "photo": "assets/img/posts/hiddenwoods-cafe-58292-1.webp",
+    "photos": [
+      "assets/img/posts/hiddenwoods-cafe-58292-1.webp",
+      "assets/img/posts/hiddenwoods-cafe-58292-2.webp",
+      "assets/img/posts/hiddenwoods-cafe-58292-3.webp",
+      "assets/img/posts/hiddenwoods-cafe-58292-4.webp",
+      "assets/img/posts/hiddenwoods-cafe-58292-5.webp"
+    ],
+    "tags": [
+      "#บางน้ำผึ้ง",
+      "#คาเฟ่ธรรมชาติ",
+      "#HiddenwoodsCafe",
+      "#กาแฟกรุงเทพ",
+      "#เค้กอร่อย"
+    ]
+  },
+  {
     "slug": "aribica-specialty-coffee-sahakorn-branch-67294",
     "name": "Aribica Specialty Coffee (Sahakorn branch)",
     "zone": "อารีย์",
